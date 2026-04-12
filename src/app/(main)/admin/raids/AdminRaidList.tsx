@@ -5,9 +5,12 @@ import Image from 'next/image'
 import {
   useAdminRaids, useCreateRaid, useDeleteRaid,
   useCreateSchedule, useUpdateSchedule, useDeleteSchedule,
-  useScheduleApplications,
+  useScheduleApplications, useCancelApplication,
 } from '@/hooks/useAdminRaids'
 import { RaidWithSchedules, RaidSchedule, DAY_LABEL } from '@/types/raid'
+import { CLASSES } from '@/models/classes'
+
+const CLASS_LABEL: Record<string, string> = Object.fromEntries(CLASSES.map((c) => [c.name, c.label]))
 import { formatCp } from '@/lib/format'
 import ScheduleModal from './ScheduleModal'
 
@@ -177,6 +180,7 @@ export default function AdminRaidList() {
 
 function ApplicantPanel({ scheduleId }: { scheduleId: string }) {
   const { data, isLoading } = useScheduleApplications(scheduleId)
+  const cancelMutation = useCancelApplication(scheduleId)
 
   if (isLoading) return <div className="px-5 py-3 text-sm text-gray-400 animate-pulse">불러오는 중...</div>
 
@@ -197,8 +201,16 @@ function ApplicantPanel({ scheduleId }: { scheduleId: string }) {
           <p className="text-xs font-medium text-gray-500 mb-1.5">{week} 신청 ({byWeek[week].length}명)</p>
           <div className="flex flex-wrap gap-1.5">
             {byWeek[week].map((app: any) => (
-              <span key={app.character_id} className="text-xs bg-white border border-gray-200 rounded-full px-2.5 py-1 text-gray-700">
-                {app.characters?.users?.nickname} · {app.characters?.nickname}
+              <span key={app.character_id} className="inline-flex items-center gap-1 text-xs bg-white border border-gray-200 rounded-full pl-2.5 pr-1.5 py-1 text-gray-700">
+                {app.characters?.users?.nickname} · {CLASS_LABEL[app.characters?.class] ?? app.characters?.class}
+                <button
+                  onClick={() => cancelMutation.mutate({ scheduleId, characterId: app.character_id, weekDate: app.week_date })}
+                  disabled={cancelMutation.isPending}
+                  className="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full text-gray-400 hover:bg-red-100 hover:text-red-500 transition-colors"
+                  title="신청 취소"
+                >
+                  ×
+                </button>
               </span>
             ))}
           </div>

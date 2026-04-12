@@ -47,6 +47,14 @@ async function fetchApplications(scheduleId: string) {
   return res.json()
 }
 
+async function cancelApplication({ scheduleId, characterId, weekDate }: { scheduleId: string; characterId: string; weekDate: string }) {
+  const res = await fetch(
+    `/api/admin/schedules/${scheduleId}/applications?characterId=${encodeURIComponent(characterId)}&weekDate=${encodeURIComponent(weekDate)}`,
+    { method: 'DELETE' }
+  )
+  if (!res.ok) throw new Error('신청 취소 실패')
+}
+
 export function useAdminRaids() {
   return useQuery({ queryKey: ['admin-raids'], queryFn: fetchAdminRaids })
 }
@@ -82,4 +90,12 @@ export function useUpdateSchedule() {
 export function useDeleteSchedule() {
   const qc = useQueryClient()
   return useMutation({ mutationFn: deleteSchedule, onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-raids'] }) })
+}
+
+export function useCancelApplication(scheduleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: cancelApplication,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['schedule-applications', scheduleId] }),
+  })
 }

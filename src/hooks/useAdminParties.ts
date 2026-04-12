@@ -65,6 +65,34 @@ export function useSavedParties(scheduleId: string, weekDate: string) {
   })
 }
 
+async function fetchTeamPreferences(scheduleId: string): Promise<Record<string, number>> {
+  const res = await fetch(`/api/admin/parties/team-preferences?scheduleId=${scheduleId}`)
+  if (!res.ok) throw new Error('팀 선호도 조회 실패')
+  return res.json()
+}
+
+async function fetchPositionPreferences(scheduleId: string): Promise<Record<string, number>> {
+  const res = await fetch(`/api/admin/parties/position-preferences?scheduleId=${scheduleId}`)
+  if (!res.ok) throw new Error('위치 선호도 조회 실패')
+  return res.json()
+}
+
+export function usePositionPreferences(scheduleId: string) {
+  return useQuery({
+    queryKey: ['positionPreferences', scheduleId],
+    queryFn: () => fetchPositionPreferences(scheduleId),
+    enabled: !!scheduleId,
+  })
+}
+
+export function useTeamPreferences(scheduleId: string) {
+  return useQuery({
+    queryKey: ['teamPreferences', scheduleId],
+    queryFn: () => fetchTeamPreferences(scheduleId),
+    enabled: !!scheduleId,
+  })
+}
+
 export function useSaveParties() {
   const qc = useQueryClient()
   return useMutation({

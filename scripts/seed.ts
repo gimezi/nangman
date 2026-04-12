@@ -124,13 +124,27 @@ async function seed() {
       userId = newUser.id
     }
 
-    // characters 테이블에 삽입
-    const charInserts = user.characters.map((c) => ({
-      user_id: userId,
-      nickname: c.nickname,
-      class: c.class,
-      combat_power: c.combat_power,
-    }))
+    // 이미 있는 캐릭터 닉네임 확인 후 없는 것만 삽입
+    const { data: existingChars } = await supabase
+      .from('characters')
+      .select('nickname')
+      .eq('user_id', userId)
+
+    const existingNicknames = new Set((existingChars ?? []).map((c) => c.nickname))
+
+    const charInserts = user.characters
+      .filter((c) => !existingNicknames.has(c.nickname))
+      .map((c) => ({
+        user_id: userId,
+        nickname: c.nickname,
+        class: c.class,
+        combat_power: c.combat_power,
+      }))
+
+    if (charInserts.length === 0) {
+      console.log(`⏭️  ${user.nickname} - 이미 등록된 캐릭터`)
+      continue
+    }
 
     const { error: charError } = await supabase.from('characters').insert(charInserts)
 

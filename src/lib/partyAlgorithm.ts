@@ -37,6 +37,18 @@ function sortByCpDesc(chars: Array<PartyCharacter | PartySlotCharacter>) {
   chars.sort((a, b) => b.combat_power - a.combat_power)
 }
 
+function sortByPosition(
+  chars: PartySlotCharacter[],
+  positions: Record<string, number>
+) {
+  chars.sort((a, b) => {
+    const posA = positions[a.sourceCharacterId] ?? Number.MAX_SAFE_INTEGER
+    const posB = positions[b.sourceCharacterId] ?? Number.MAX_SAFE_INTEGER
+    if (posA !== posB) return posA - posB
+    return b.combat_power - a.combat_power
+  })
+}
+
 function makeSlot(char: PartyCharacter, isDuplicate = false): PartySlotCharacter {
   return {
     ...char,
@@ -170,11 +182,14 @@ function balanceAverageCp(subParties: PartySlotCharacter[][]) {
   }
 }
 
-function applyClassBalance(subParties: PartySlotCharacter[][]) {
+function applyClassBalance(subParties: PartySlotCharacter[][], positions: Record<string, number> = {}) {
   ensureSupport(subParties)
   balanceTanks(subParties)
   balanceAverageCp(subParties)
-  subParties.forEach(sortByCpDesc)
+  const hasPositions = Object.keys(positions).length > 0
+  subParties.forEach((party) =>
+    hasPositions ? sortByPosition(party, positions) : sortByCpDesc(party)
+  )
 }
 
 function chooseBestPartyIndex(
@@ -206,9 +221,13 @@ function chooseBestPartyIndex(
   return candidates[0].idx
 }
 
-function buildTeamParties(teamUserList: [string, PartyCharacter[]][], partySize: number): PartySlotCharacter[][] {
+function buildTeamParties(teamUserList: [string, PartyCharacter[]][], partySize: number, positions: Record<string, number> = {}): PartySlotCharacter[][] {
   const totalCharacters = teamUserList.reduce((sum, [, chars]) => sum + chars.length, 0)
-  const partyCount = Math.max(1, Math.ceil(totalCharacters / partySize))
+  // 한 유저의 캐릭터 수만큼 파티가 있어야 같은 파티에 중복 배치를 막을 수 있음
+  const maxUserCharCount = teamUserList.length > 0
+    ? Math.max(...teamUserList.map(([, chars]) => chars.length))
+    : 0
+  const partyCount = Math.max(1, Math.ceil(totalCharacters / partySize), maxUserCharCount)
   const parties: PartySlotCharacter[][] = Array.from({ length: partyCount }, () => [])
 
   const sortedUsers = [...teamUserList]
@@ -238,22 +257,25 @@ function buildTeamParties(teamUserList: [string, PartyCharacter[]][], partySize:
     }
   }
 
-  applyClassBalance(parties)
+  applyClassBalance(parties, positions)
   return parties
 }
 
 /**
  * 자동배치:
- * - 유저를 팀으로 스네이크 분배
+ * - teamPreferences(userNickname → teamIdx)가 있으면 해당 팀으로 고정 배치
+ * - 나머지 유저는 스네이크 드래프트로 배분
  * - 각 팀의 모든 캐릭터를 다 사용
  * - 팀별로 필요한 파티 수를 자동 계산
- * - 같은 유저 캐릭터는 가능한 서로 다른 파티로 우선 분산
+ * - 같은 유저 캐릭터는 반드시 서로 다른 파티에 배치
  * - bench는 항상 빈 배열
  */
 export function autoAssignTeams(
   characters: PartyCharacter[],
   numTeams: number,
-  partySize: number
+  partySize: number,
+  teamPreferences: Record<string, number> = {},
+  characterPositions: Record<string, number> = {}
 ): { teams: PartySlotCharacter[][][]; bench: PartySlotCharacter[] } {
   const userMap = new Map<string, PartyCharacter[]>()
 
@@ -272,11 +294,30 @@ export function autoAssignTeams(
 
   const teamUsers: [string, PartyCharacter[]][][] = Array.from({ length: numTeams }, () => [])
 
-  for (let i = 0; i < users.length; i++) {
+  // 팀 고정 유저와 아닌 유저 분리
+  const preferredUsers: typeof users = []
+  const unpreferredUsers: typeof users = []
+
+  for (const user of users) {
+    const pref = teamPreferences[user[0]]
+    if (pref !== undefined && pref >= 0 && pref < numTeams) {
+      preferredUsers.push(user)
+    } else {
+      unpreferredUsers.push(user)
+    }
+  }
+
+  // 팀 고정 유저 먼저 배치
+  for (const [nick, chars] of preferredUsers) {
+    teamUsers[teamPreferences[nick]].push([nick, chars])
+  }
+
+  // 나머지 유저는 스네이크 드래프트
+  for (let i = 0; i < unpreferredUsers.length; i++) {
     const round = Math.floor(i / numTeams)
     const pos = i % numTeams
     const teamIdx = round % 2 === 0 ? pos : numTeams - 1 - pos
-    teamUsers[teamIdx].push(users[i])
+    teamUsers[teamIdx].push(unpreferredUsers[i])
   }
 
   const teams: PartySlotCharacter[][][] = []
@@ -287,7 +328,7 @@ export function autoAssignTeams(
       continue
     }
 
-    teams.push(buildTeamParties(teamUserList, partySize))
+    teams.push(buildTeamParties(teamUserList, partySize, characterPositions))
   }
 
   return { teams, bench: [] }

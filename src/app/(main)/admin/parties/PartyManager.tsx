@@ -1,8 +1,22 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import {
+  DndContext,
+  DragOverlay,
+  DragStartEvent,
+  DragEndEvent,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  useDroppable,
+  useDraggable,
+} from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import { RaidWithSchedules, DAY_LABEL } from '@/types/raid'
-import { useApplicants, useSavedParties, useSaveParties } from '@/hooks/useAdminParties'
+import { useApplicants, useSavedParties, useSaveParties, useTeamPreferences, usePositionPreferences } from '@/hooks/useAdminParties'
 import {
   autoAssignTeams,
   PartyCharacter,
@@ -26,12 +40,108 @@ type PartyMoveTarget =
       subIdx: number
     }
 
+// 드래그 중 오버레이에 표시할 캐릭터 카드
+function DragCharOverlay({ char }: { char: PartySlotCharacter }) {
+  const cls = CLASSES.find((c) => c.name === char.class)
+  return (
+    <div className="bg-white shadow-xl rounded-lg border border-indigo-300 px-3 py-2 text-sm flex items-center gap-2 w-72 cursor-grabbing">
+      <span className="text-gray-300 select-none">⠿</span>
+      <span className="font-medium text-gray-800 truncate">{char.userNickname}</span>
+      <span className="text-gray-400 text-xs truncate">· {char.nickname}</span>
+      <span className="ml-auto text-xs text-gray-500 tabular-nums shrink-0">{formatCp(char.combat_power)}</span>
+      {cls && <span className="text-xs text-gray-400 shrink-0">{cls.label}</span>}
+    </div>
+  )
+}
+
+// 벤치의 드래그 가능한 아이템
+function DraggableBenchItem({
+  char,
+  allPartyLabels,
+  onMoveTo,
+}: {
+  char: PartySlotCharacter
+  allPartyLabels: { teamIdx: number; subIdx: number; label: string }[]
+  onMoveTo: (teamIdx: number, subIdx: number) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: char.slotId,
+    data: { char, from: 'bench' as const },
+  })
+  const cls = CLASSES.find((c) => c.name === char.class)
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-3 py-1 ${isDragging ? 'opacity-30' : ''}`}
+    >
+      <span
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 touch-none select-none shrink-0"
+      >
+        ⠿
+      </span>
+
+      <span className="flex-1 truncate text-sm font-medium text-gray-800">{char.userNickname}</span>
+      <span className={`text-xs font-medium shrink-0 ${
+        cls?.type === 'support' ? 'text-green-600' : cls?.type === 'tank' ? 'text-blue-500' : 'text-red-500'
+      }`}>
+        {cls?.label ?? char.class}
+      </span>
+      <span className="text-xs text-gray-500 tabular-nums shrink-0">{formatCp(char.combat_power)}</span>
+
+      <div className="flex flex-wrap gap-1">
+        {allPartyLabels.map((p) => (
+          <button
+            key={`${p.teamIdx}-${p.subIdx}`}
+            onClick={() => onMoveTo(p.teamIdx, p.subIdx)}
+            className="text-xs px-2 py-1 rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// 벤치 드롭존
+function DroppableBench({
+  children,
+  count,
+}: {
+  children: React.ReactNode
+  count: number
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'bench' })
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-xl border p-4 mb-4 min-h-[60px] transition-colors ${
+        isOver ? 'bg-gray-100 border-gray-400' : 'bg-white border-gray-200'
+      }`}
+    >
+      <p className="text-sm font-medium text-gray-700 mb-3">미배치 ({count}명)</p>
+      {children}
+    </div>
+  )
+}
+
 export default function PartyManager({ raids }: Props) {
   const [selectedScheduleId, setSelectedScheduleId] = useState('')
   const [numTeams, setNumTeams] = useState(2)
   const [teams, setTeams] = useState<PartySlotCharacter[][][]>([])
   const [bench, setBench] = useState<PartySlotCharacter[]>([])
   const [initialized, setInitialized] = useState(false)
+  const [activeDragData, setActiveDragData] = useState<{ char: PartySlotCharacter; from: PartyMoveTarget } | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
+  )
 
   const selectedSchedule = raids.flatMap((r) => r.raid_schedules).find((s) => s.id === selectedScheduleId)
 
@@ -40,6 +150,8 @@ export default function PartyManager({ raids }: Props) {
   const weekDate = applicantData?.weekDate ?? ''
 
   const { data: savedParties = [], isLoading: loadingSaved } = useSavedParties(selectedScheduleId, weekDate)
+  const { data: teamPreferences = {} } = useTeamPreferences(selectedScheduleId)
+  const { data: characterPositions = {} } = usePositionPreferences(selectedScheduleId)
   const saveParties = useSaveParties()
 
   const allSchedules = raids.flatMap((r) =>
@@ -101,10 +213,39 @@ export default function PartyManager({ raids }: Props) {
     setInitialized(true)
   }, [savedParties, applicants, initialized])
 
+  function handleDragStart(event: DragStartEvent) {
+    const data = event.active.data.current as { char: PartySlotCharacter; from: PartyMoveTarget } | undefined
+    if (data) setActiveDragData(data)
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveDragData(null)
+    const { active, over } = event
+    if (!over) return
+
+    const data = active.data.current as { char: PartySlotCharacter; from: PartyMoveTarget } | undefined
+    if (!data) return
+
+    const { char, from } = data
+    const overId = String(over.id)
+
+    let to: PartyMoveTarget
+    if (overId === 'bench') {
+      to = 'bench'
+    } else {
+      const partyNum = Number(overId)
+      if (isNaN(partyNum)) return
+      const { teamIdx, subIdx } = decodePartyNumber(partyNum)
+      to = { teamIdx, subIdx }
+    }
+
+    moveCharacter(char, from, to)
+  }
+
   function handleAutoAssign() {
     if (!selectedSchedule) return
 
-    const result = autoAssignTeams(applicants, numTeams, selectedSchedule.party_size)
+    const result = autoAssignTeams(applicants, numTeams, selectedSchedule.party_size, teamPreferences, characterPositions)
     setTeams(result.teams)
     setBench(result.bench)
     setInitialized(true)
@@ -129,7 +270,7 @@ export default function PartyManager({ raids }: Props) {
       }
     }
 
-    const result = autoAssignTeams([...allOriginalCharsMap.values()], nextNumTeams, selectedSchedule.party_size)
+    const result = autoAssignTeams([...allOriginalCharsMap.values()], nextNumTeams, selectedSchedule.party_size, teamPreferences, characterPositions)
     setTeams(result.teams)
     setBench(result.bench)
     setInitialized(true)
@@ -301,7 +442,13 @@ export default function PartyManager({ raids }: Props) {
       </div>
 
       {hasTeams && (
-        <>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveDragData(null)}
+        >
           <div
             className={`grid gap-4 mb-4 ${
               numTeams === 1 ? 'grid-cols-1' : numTeams === 2 ? 'grid-cols-2' : 'grid-cols-3'
@@ -363,52 +510,23 @@ export default function PartyManager({ raids }: Props) {
           </div>
 
           {bench.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-              <p className="text-sm font-medium text-gray-700 mb-3">미배치 ({bench.length}명)</p>
-
+            <DroppableBench count={bench.length}>
               <div className="flex flex-col gap-2">
-                {bench.map((char) => {
-                  const cls = CLASSES.find((c) => c.name === char.class)
-
-                  return (
-                    <div key={char.slotId} className="flex items-center gap-3 py-1">
-                      <div className="flex-1 min-w-0 text-sm">
-                        <span className="font-medium text-gray-800">{char.userNickname}</span>
-                        <span className="text-gray-400 mx-1">·</span>
-                        <span className="text-gray-600">{char.nickname}</span>
-                        <span className="text-xs text-gray-400 ml-2">
-                          {cls?.label} {formatCp(char.combat_power)}
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-1">
-                        {allPartyLabels().map((p) => (
-                          <button
-                            key={`${p.teamIdx}-${p.subIdx}`}
-                            onClick={() =>
-                              moveCharacter(char, 'bench', {
-                                teamIdx: p.teamIdx,
-                                subIdx: p.subIdx,
-                              })
-                            }
-                            className={`text-xs px-2 py-1 rounded ${
-                              p.teamIdx === 0
-                                ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                                : p.teamIdx === 1
-                                  ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                                  : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-                            }`}
-                          >
-                            {p.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
+                {bench.map((char) => (
+                  <DraggableBenchItem
+                    key={char.slotId}
+                    char={char}
+                    allPartyLabels={allPartyLabels()}
+                    onMoveTo={(tIdx, sIdx) => moveCharacter(char, 'bench', { teamIdx: tIdx, subIdx: sIdx })}
+                  />
+                ))}
               </div>
-            </div>
+            </DroppableBench>
           )}
+
+          <DragOverlay dropAnimation={null}>
+            {activeDragData && <DragCharOverlay char={activeDragData.char} />}
+          </DragOverlay>
 
           <button
             onClick={handleSave}
@@ -419,7 +537,7 @@ export default function PartyManager({ raids }: Props) {
           </button>
 
           {saveParties.isSuccess && <p className="text-green-600 text-sm text-center mt-2">저장됐어요!</p>}
-        </>
+        </DndContext>
       )}
 
       {selectedScheduleId && !hasTeams && !loadingApplicants && !loadingSaved && (

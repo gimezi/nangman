@@ -78,30 +78,33 @@ function DraggableBenchItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 py-1 ${isDragging ? 'opacity-30' : ''}`}
+      className={`py-1 ${isDragging ? 'opacity-30' : ''}`}
     >
-      <span
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 touch-none select-none shrink-0"
-      >
-        ⠿
-      </span>
-
-      <span className="flex-1 truncate text-sm font-medium text-gray-800">{char.userNickname}</span>
-      <span className={`text-xs font-medium shrink-0 ${
-        cls?.type === 'support' ? 'text-green-600' : cls?.type === 'tank' ? 'text-blue-500' : 'text-red-500'
-      }`}>
-        {cls?.label ?? char.class}
-      </span>
-      {char.isVolunteer && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold shrink-0">
-          지원
+      {/* 이름 / 직업 / 투력 행 */}
+      <div className="flex items-center gap-2">
+        <span
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 touch-none select-none shrink-0"
+        >
+          ⠿
         </span>
-      )}
-      <span className="text-xs text-gray-500 tabular-nums shrink-0">{formatCp(char.combat_power)}</span>
+        <span className="text-sm font-medium text-gray-800">{char.userNickname || char.nickname}</span>
+        <span className={`text-xs font-medium shrink-0 ${
+          cls?.type === 'support' ? 'text-green-600' : cls?.type === 'tank' ? 'text-blue-500' : 'text-red-500'
+        }`}>
+          {cls?.label ?? char.class}
+        </span>
+        {char.isVolunteer && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold shrink-0">
+            지원
+          </span>
+        )}
+        <span className="ml-auto text-xs text-gray-500 tabular-nums shrink-0">{formatCp(char.combat_power)}</span>
+      </div>
 
-      <div className="flex flex-wrap gap-1">
+      {/* 파티 이동 버튼 행 */}
+      <div className="flex flex-wrap gap-1 pl-5 mt-1">
         {allPartyLabels.map((p) => (
           <button
             key={`${p.teamIdx}-${p.subIdx}`}
@@ -128,7 +131,7 @@ function DroppableBench({
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-xl border p-4 mb-4 min-h-[60px] transition-colors ${
+      className={`rounded-xl border p-4 mb-4 min-h-15 transition-colors ${
         isOver ? 'bg-gray-100 border-gray-400' : 'bg-white border-gray-200'
       }`}
     >
@@ -140,7 +143,8 @@ function DroppableBench({
 
 export default function PartyManager({ raids }: Props) {
   const [selectedScheduleId, setSelectedScheduleId] = useState('')
-  const [numTeams, setNumTeams] = useState(2)
+  const [numTeams, setNumTeams] = useState<number | null>(null)
+  
   const [teams, setTeams] = useState<PartySlotCharacter[][][]>([])
   const [bench, setBench] = useState<PartySlotCharacter[]>([])
   const [initialized, setInitialized] = useState(false)
@@ -170,9 +174,11 @@ export default function PartyManager({ raids }: Props) {
     setTeams([])
     setBench([])
     setInitialized(false)
+    setNumTeams(null)
   }, [selectedScheduleId])
 
   useEffect(() => {
+    if (numTeams == null) return
     if (!savedParties.length || !applicants.length || initialized) return
 
     const maxTeamIdx = Math.max(0, ...savedParties.map((sp) => decodePartyNumber(sp.party_number).teamIdx))
@@ -216,7 +222,7 @@ export default function PartyManager({ raids }: Props) {
           isDuplicate: false,
         }))
     )
-
+    
     setNumTeams(Math.max(1, normalizedTeams.length))
     setInitialized(true)
   }, [savedParties, applicants, initialized])
@@ -251,7 +257,7 @@ export default function PartyManager({ raids }: Props) {
   }
 
   function handleAutoAssign() {
-    if (!selectedSchedule) return
+    if (!selectedSchedule || !numTeams) return
 
     const result = autoAssignTeams(applicants, numTeams, selectedSchedule.party_size, teamPreferences, characterPositions)
     setTeams(result.teams)
@@ -384,7 +390,7 @@ export default function PartyManager({ raids }: Props) {
     )
   }
 
-  const hasTeams = teams.some((team) => team.length > 0)
+  const hasTeams = numTeams != null && teams.some((team) => team.length > 0)
 
   return (
     <div>
@@ -411,7 +417,7 @@ export default function PartyManager({ raids }: Props) {
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">팀 수</label>
                 <div className="flex gap-1">
-                  {[1, 2, 3].map((count) => (
+                  {[1, 2].map((count) => (
                     <button
                       key={count}
                       onClick={() => handleNumTeamsChange(count)}
@@ -448,6 +454,7 @@ export default function PartyManager({ raids }: Props) {
           </p>
         )}
       </div>
+
 
       {hasTeams && (
         <DndContext
@@ -550,7 +557,12 @@ export default function PartyManager({ raids }: Props) {
         </DndContext>
       )}
 
-      {selectedScheduleId && !hasTeams && !loadingApplicants && !loadingSaved && (
+      {selectedScheduleId && numTeams == null && !loadingApplicants && !loadingSaved && (
+        <div className="text-center py-16 text-gray-400">
+          팀 수를 먼저 선택해주세요
+        </div>
+      )}
+      {selectedScheduleId && !hasTeams && numTeams && !loadingApplicants && !loadingSaved && (
         <div className="text-center py-16 text-gray-400">
           {applicants.length > 0 ? '자동 배치 버튼을 눌러 파티를 구성해보세요' : '신청 인원이 없어요'}
         </div>

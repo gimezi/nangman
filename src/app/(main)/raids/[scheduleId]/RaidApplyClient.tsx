@@ -24,6 +24,7 @@ type Props = {
   schedule: Schedule
   characters: Character[]
   classes: ClassType[]
+  userNickname: string
 }
 
 const TYPE_BADGE: Record<string, string> = {
@@ -38,27 +39,43 @@ const TYPE_LABEL: Record<string, string> = {
   tank: '탱커',
 }
 
-export default function RaidApplyClient({ schedule, characters, classes }: Props) {
+export default function RaidApplyClient({ schedule, characters, classes, userNickname }: Props) {
   const router = useRouter()
   const { data: applicationData, isLoading } = useRaidApplications(schedule.id)
   const applyMutation = useApplyToRaid(schedule.id)
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [volunteerCharacterId, setVolunteerCharacterId] = useState<string | null>(null)
+
+  // 본캐: 닉네임이 유저 닉네임과 같은 캐릭터
+  const mainChar = characters.find((c) => c.nickname === userNickname)
 
   // 기존 신청 데이터 로드되면 초기 선택 상태 세팅
   useEffect(() => {
     if (applicationData?.appliedCharacterIds) {
       setSelected(new Set(applicationData.appliedCharacterIds))
     }
+    if (applicationData?.volunteerCharacterId !== undefined) {
+      setVolunteerCharacterId(applicationData.volunteerCharacterId)
+    }
   }, [applicationData])
 
   function toggleCharacter(id: string) {
     setSelected((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+        // 본캐 선택 해제 시 지원도 해제
+        if (id === volunteerCharacterId) setVolunteerCharacterId(null)
+      } else {
+        next.add(id)
+      }
       return next
     })
+  }
+
+  function toggleVolunteer(id: string) {
+    setVolunteerCharacterId((prev) => (prev === id ? null : id))
   }
 
   function getClassInfo(className: string) {
@@ -72,6 +89,7 @@ export default function RaidApplyClient({ schedule, characters, classes }: Props
         scheduleId: schedule.id,
         characterIds: Array.from(selected),
         weekDate: applicationData.weekDate,
+        volunteerCharacterId: volunteerCharacterId ?? undefined,
       },
       { onSuccess: () => router.push('/raids') }
     )
@@ -124,61 +142,92 @@ export default function RaidApplyClient({ schedule, characters, classes }: Props
               const classInfo = getClassInfo(char.class)
               const isSelected = selected.has(char.id)
               const meetsMin = char.combat_power >= schedule.required_cp
+              const isMain = char.id === mainChar?.id
+              const isVolunteer = volunteerCharacterId === char.id
 
               return (
-                <button
+                <div
                   key={char.id}
-                  onClick={() => meetsMin && toggleCharacter(char.id)}
-                  disabled={!meetsMin}
-                  className={`w-full text-left rounded-xl border px-5 py-4 transition-all ${
+                  className={`w-full rounded-xl border transition-all ${
                     !meetsMin
-                      ? 'border-gray-100 bg-gray-50 opacity-40 cursor-not-allowed'
+                      ? 'border-gray-100 bg-gray-50 opacity-40'
                       : isSelected
                       ? 'border-blue-400 bg-blue-50 shadow-sm'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
+                      : 'border-gray-200 bg-white'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    {/* 체크박스 */}
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                        isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                      }`}
-                    >
-                      {isSelected && (
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">{char.nickname}</span>
-                        {classInfo && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${TYPE_BADGE[classInfo.type]}`}>
-                            {TYPE_LABEL[classInfo.type]}
-                          </span>
+                  <button
+                    onClick={() => meetsMin && toggleCharacter(char.id)}
+                    disabled={!meetsMin}
+                    className="w-full text-left px-5 py-4 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* 체크박스 */}
+                      <div
+                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                          isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                        }`}
+                      >
+                        {isSelected && (
+                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5">
-                        <span>{classInfo?.label ?? char.class}</span>
-                        <span className="text-gray-300">|</span>
-                        <span className={
-                          char.combat_power >= schedule.overwhelming_cp
-                            ? 'text-purple-600 font-medium'
-                            : char.combat_power >= schedule.recommended_cp
-                            ? 'text-gray-700 font-medium'
-                            : 'text-orange-500'
-                        }>
-                          {formatCp(char.combat_power)}
-                          {char.combat_power >= schedule.overwhelming_cp && ' ✦'}
-                          {char.combat_power < schedule.recommended_cp && ' (권장 미달)'}
-                        </span>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900">{char.nickname}</span>
+                          {isMain && (
+                            <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-yellow-50 text-yellow-700">
+                              본캐
+                            </span>
+                          )}
+                          {classInfo && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${TYPE_BADGE[classInfo.type]}`}>
+                              {TYPE_LABEL[classInfo.type]}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5">
+                          <span>{classInfo?.label ?? char.class}</span>
+                          <span className="text-gray-300">|</span>
+                          <span className={
+                            char.combat_power >= schedule.overwhelming_cp
+                              ? 'text-purple-600 font-medium'
+                              : char.combat_power >= schedule.recommended_cp
+                              ? 'text-gray-700 font-medium'
+                              : 'text-gray-600'
+                          }>
+                            {formatCp(char.combat_power)}
+                            {char.combat_power >= schedule.overwhelming_cp && ' ✦'}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+
+                  {/* 지원 토글 — 본캐이고 선택된 경우에만 표시 */}
+                  {isMain && isSelected && (
+                    <div className="px-5 pb-3 flex items-center gap-2">
+                      <button
+                        onClick={() => toggleVolunteer(char.id)}
+                        className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+                          isVolunteer
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-gray-500 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+                        }`}
+                      >
+                        {isVolunteer && (
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        지원
+                      </button>
+                    </div>
+                  )}
+                </div>
               )
             })
           )}

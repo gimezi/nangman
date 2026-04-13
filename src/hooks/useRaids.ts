@@ -10,22 +10,24 @@ async function fetchRaids(): Promise<RaidWithSchedules[]> {
 async function fetchApplications(scheduleId: string) {
   const res = await fetch(`/api/raids/${scheduleId}/applications`)
   if (!res.ok) throw new Error('신청 정보를 불러오지 못했어요.')
-  return res.json() as Promise<{ weekDate: string; appliedCharacterIds: string[] }>
+  return res.json() as Promise<{ weekDate: string; appliedCharacterIds: string[]; volunteerCharacterId: string | null }>
 }
 
 async function applyToRaid({
   scheduleId,
   characterIds,
   weekDate,
+  volunteerCharacterId,
 }: {
   scheduleId: string
   characterIds: string[]
   weekDate: string
+  volunteerCharacterId?: string
 }) {
   const res = await fetch(`/api/raids/${scheduleId}/applications`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ characterIds, weekDate }),
+    body: JSON.stringify({ characterIds, weekDate, volunteerCharacterId }),
   })
   if (!res.ok) {
     const { error } = await res.json()

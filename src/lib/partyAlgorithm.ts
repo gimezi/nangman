@@ -6,6 +6,7 @@ export type PartyCharacter = {
   class: string
   combat_power: number
   userNickname: string
+  isVolunteer?: boolean
 }
 
 export type PartySlotCharacter = PartyCharacter & {

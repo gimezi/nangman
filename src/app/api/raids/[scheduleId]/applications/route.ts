@@ -34,16 +34,19 @@ export async function GET(_: NextRequest, { params }: Params) {
 
   const { data: applications, error } = await supabase
     .from('raid_applications')
-    .select('character_id')
+    .select('character_id, is_volunteer')
     .eq('raid_schedule_id', scheduleId)
     .eq('week_date', weekDate)
     .in('character_id', myCharacterIds.length > 0 ? myCharacterIds : [''])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  const volunteerRow = applications?.find((a) => a.is_volunteer)
+
   return NextResponse.json({
     weekDate,
     appliedCharacterIds: applications?.map((a) => a.character_id) ?? [],
+    volunteerCharacterId: volunteerRow?.character_id ?? null,
   })
 }
 
@@ -52,7 +55,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { scheduleId } = await params
-  const { characterIds, weekDate } = await request.json()
+  const { characterIds, weekDate, volunteerCharacterId } = await request.json()
 
   if (!characterIds?.length) {
     return NextResponse.json({ error: '캐릭터를 선택해주세요.' }, { status: 400 })
@@ -69,6 +72,11 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: '잘못된 캐릭터 요청이에요.' }, { status: 403 })
   }
 
+  // volunteerCharacterId가 내 캐릭터인지 확인
+  if (volunteerCharacterId && !myChars.some((c) => c.id === volunteerCharacterId)) {
+    return NextResponse.json({ error: '잘못된 지원 캐릭터 요청이에요.' }, { status: 403 })
+  }
+
   // 기존 신청 삭제 후 재등록
   await supabase
     .from('raid_applications')
@@ -82,6 +90,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       raid_schedule_id: scheduleId,
       character_id: characterId,
       week_date: weekDate,
+      is_volunteer: characterId === volunteerCharacterId,
     }))
 
     const { error } = await supabase.from('raid_applications').insert(inserts)

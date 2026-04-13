@@ -88,6 +88,12 @@ function DraggableCharRow({
           {cls?.label ?? char.class}
         </span>
 
+        {char.isVolunteer && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold">
+            지원
+          </span>
+        )}
+
         {char.isDuplicate && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
             중복

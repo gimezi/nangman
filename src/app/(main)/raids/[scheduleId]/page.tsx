@@ -32,6 +32,7 @@ export default async function RaidApplyPage({
       schedule={schedule}
       characters={characters ?? []}
       classes={CLASSES}
+      userNickname={session!.nickname}
     />
   )
 }

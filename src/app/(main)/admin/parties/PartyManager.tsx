@@ -48,6 +48,9 @@ function DragCharOverlay({ char }: { char: PartySlotCharacter }) {
       <span className="text-gray-300 select-none">⠿</span>
       <span className="font-medium text-gray-800 truncate">{char.userNickname}</span>
       <span className="text-gray-400 text-xs truncate">· {char.nickname}</span>
+      {char.isVolunteer && (
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold shrink-0">지원</span>
+      )}
       <span className="ml-auto text-xs text-gray-500 tabular-nums shrink-0">{formatCp(char.combat_power)}</span>
       {cls && <span className="text-xs text-gray-400 shrink-0">{cls.label}</span>}
     </div>
@@ -91,6 +94,11 @@ function DraggableBenchItem({
       }`}>
         {cls?.label ?? char.class}
       </span>
+      {char.isVolunteer && (
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold shrink-0">
+          지원
+        </span>
+      )}
       <span className="text-xs text-gray-500 tabular-nums shrink-0">{formatCp(char.combat_power)}</span>
 
       <div className="flex flex-wrap gap-1">
@@ -509,8 +517,10 @@ export default function PartyManager({ raids }: Props) {
             })}
           </div>
 
-          {bench.length > 0 && (
-            <DroppableBench count={bench.length}>
+          <DroppableBench count={bench.length}>
+            {bench.length === 0 ? (
+              <p className="text-xs text-gray-300 text-center py-2">캐릭터를 여기로 드래그하세요</p>
+            ) : (
               <div className="flex flex-col gap-2">
                 {bench.map((char) => (
                   <DraggableBenchItem
@@ -521,8 +531,8 @@ export default function PartyManager({ raids }: Props) {
                   />
                 ))}
               </div>
-            </DroppableBench>
-          )}
+            )}
+          </DroppableBench>
 
           <DragOverlay dropAnimation={null}>
             {activeDragData && <DragCharOverlay char={activeDragData.char} />}

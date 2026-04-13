@@ -59,6 +59,19 @@ function makeSlot(char: PartyCharacter, isDuplicate = false): PartySlotCharacter
   }
 }
 
+function wouldCreateUserConflict(
+  partyA: PartySlotCharacter[],
+  charA: PartySlotCharacter,
+  partyB: PartySlotCharacter[],
+  charB: PartySlotCharacter
+): boolean {
+  const afterA = partyA.filter((c) => c.slotId !== charA.slotId)
+  if (afterA.some((c) => c.userNickname === charB.userNickname)) return true
+  const afterB = partyB.filter((c) => c.slotId !== charB.slotId)
+  if (afterB.some((c) => c.userNickname === charA.userNickname)) return true
+  return false
+}
+
 function swapCharacters(
   partyA: PartySlotCharacter[],
   charA: PartySlotCharacter,
@@ -87,35 +100,58 @@ function hasEnoughPowerDealer(party: PartySlotCharacter[], thresholdRate = 1.2) 
 }
 
 function ensureSupport(subParties: PartySlotCharacter[][]) {
-  for (let i = 0; i < subParties.length; i++) {
-    const target = subParties[i]
-    const hasSupport = target.some((c) => getType(c.class) === 'support')
+  let changed = true
+  let loop = 0
 
-    if (hasSupport || hasEnoughPowerDealer(target)) continue
+  while (changed && loop < 30) {
+    loop++
+    changed = false
 
-    for (let j = 0; j < subParties.length; j++) {
-      if (i === j) continue
+    const supportCounts = subParties.map((p) => countType(p, 'support'))
+    const maxSupport = Math.max(...supportCounts)
+    const minSupport = Math.min(...supportCounts)
 
-      const donor = subParties[j]
-      const donorSupports = donor.filter((c) => getType(c.class) === 'support')
-      if (donorSupports.length <= 1) continue
+    if (maxSupport - minSupport < 2) break
 
-      const receiverDealers = target.filter((c) => getType(c.class) === 'dealer')
-      if (!receiverDealers.length) continue
+    // 모든 rich-poor 조합 시도
+    outer: for (let richIdx = 0; richIdx < subParties.length; richIdx++) {
+      if (supportCounts[richIdx] !== maxSupport) continue
+      for (let poorIdx = 0; poorIdx < subParties.length; poorIdx++) {
+        if (poorIdx === richIdx || supportCounts[poorIdx] !== minSupport) continue
 
-      const giveSupport = donorSupports[donorSupports.length - 1]
-      const takeDealer = receiverDealers[receiverDealers.length - 1]
+        const rich = subParties[richIdx]
+        const poor = subParties[poorIdx]
 
-      swapCharacters(donor, giveSupport, target, takeDealer)
-      break
+        // 줄 서포터: 전투력 낮은 순
+        const supports = rich
+          .filter((c) => getType(c.class) === 'support')
+          .sort((a, b) => a.combat_power - b.combat_power)
+
+        // 받을 비서포터: 전투력 낮은 순
+        const nonSupports = poor
+          .filter((c) => getType(c.class) !== 'support')
+          .sort((a, b) => a.combat_power - b.combat_power)
+
+        for (const support of supports) {
+          for (const nonSupport of nonSupports) {
+            if (!wouldCreateUserConflict(rich, support, poor, nonSupport)) {
+              swapCharacters(rich, support, poor, nonSupport)
+              changed = true
+              break outer
+            }
+          }
+        }
+      }
     }
   }
 }
 
 function balanceTanks(subParties: PartySlotCharacter[][]) {
   let changed = true
+  let loop = 0
 
-  while (changed) {
+  while (changed && loop < 30) {
+    loop++
     changed = false
 
     const tankCounts = subParties.map((p) => countType(p, 'tank'))
@@ -124,24 +160,36 @@ function balanceTanks(subParties: PartySlotCharacter[][]) {
 
     if (maxTank - minTank < 2) break
 
-    const richIdx = tankCounts.indexOf(maxTank)
-    const poorIdx = tankCounts.indexOf(minTank)
+    // 모든 rich-poor 조합을 시도
+    outer: for (let richIdx = 0; richIdx < subParties.length; richIdx++) {
+      if (tankCounts[richIdx] !== maxTank) continue
+      for (let poorIdx = 0; poorIdx < subParties.length; poorIdx++) {
+        if (poorIdx === richIdx || tankCounts[poorIdx] !== minTank) continue
 
-    const richParty = subParties[richIdx]
-    const poorParty = subParties[poorIdx]
+        const rich = subParties[richIdx]
+        const poor = subParties[poorIdx]
 
-    const giveTank = richParty
-      .filter((c) => getType(c.class) === 'tank')
-      .sort((a, b) => a.combat_power - b.combat_power)[0]
+        // 줄 탱커: 전투력 낮은 순
+        const tanks = rich
+          .filter((c) => getType(c.class) === 'tank')
+          .sort((a, b) => a.combat_power - b.combat_power)
 
-    const takeDealer = poorParty
-      .filter((c) => getType(c.class) === 'dealer')
-      .sort((a, b) => a.combat_power - b.combat_power)[0]
+        // 받을 비탱커: 전투력 낮은 순
+        const nonTanks = poor
+          .filter((c) => getType(c.class) !== 'tank')
+          .sort((a, b) => a.combat_power - b.combat_power)
 
-    if (!giveTank || !takeDealer) break
-
-    swapCharacters(richParty, giveTank, poorParty, takeDealer)
-    changed = true
+        for (const tank of tanks) {
+          for (const nonTank of nonTanks) {
+            if (!wouldCreateUserConflict(rich, tank, poor, nonTank)) {
+              swapCharacters(rich, tank, poor, nonTank)
+              changed = true
+              break outer
+            }
+          }
+        }
+      }
+    }
   }
 }
 
@@ -177,6 +225,7 @@ function balanceAverageCp(subParties: PartySlotCharacter[][]) {
 
     if (!highDealer || !lowDealer) break
     if (highDealer.combat_power <= lowDealer.combat_power) break
+    if (wouldCreateUserConflict(highParty, highDealer, lowParty, lowDealer)) break
 
     swapCharacters(highParty, highDealer, lowParty, lowDealer)
     changed = true
@@ -184,8 +233,11 @@ function balanceAverageCp(subParties: PartySlotCharacter[][]) {
 }
 
 function applyClassBalance(subParties: PartySlotCharacter[][], positions: Record<string, number> = {}) {
+  // 탱커/서포터 균등 분배 우선, 2패스로 안정화
+  balanceTanks(subParties)
   ensureSupport(subParties)
   balanceTanks(subParties)
+  ensureSupport(subParties)
   balanceAverageCp(subParties)
   const hasPositions = Object.keys(positions).length > 0
   subParties.forEach((party) =>
@@ -195,40 +247,46 @@ function applyClassBalance(subParties: PartySlotCharacter[][], positions: Record
 
 function chooseBestPartyIndex(
   parties: PartySlotCharacter[][],
-  userNickname: string,
+  char: PartyCharacter,
   partySize: number,
-  preferNoDuplicateUser: boolean
 ) {
+  const charType = getType(char.class)
+
   const candidates = parties
     .map((party, idx) => ({ party, idx }))
     .filter(({ party }) => party.length < partySize)
-    .filter(({ party }) =>
-      preferNoDuplicateUser
-        ? !party.some((member) => member.userNickname === userNickname)
-        : true
-    )
+    .filter(({ party }) => !party.some((m) => m.userNickname === char.userNickname))
 
   if (!candidates.length) return -1
 
   candidates.sort((a, b) => {
+    // 서포터/탱커는 해당 타입이 적은 파티 우선
+    if (charType === 'support' || charType === 'tank') {
+      const diff = countType(a.party, charType) - countType(b.party, charType)
+      if (diff !== 0) return diff
+    }
+
+    // 인원 적은 파티 우선
     if (a.party.length !== b.party.length) return a.party.length - b.party.length
 
-    const avgDiff = avgCp(a.party) - avgCp(b.party)
-    if (avgDiff !== 0) return avgDiff
-
-    return a.idx - b.idx
+    // 평균 전투력 낮은 파티 우선 (강한 캐릭터 고르게 분배)
+    return avgCp(a.party) - avgCp(b.party)
   })
 
   return candidates[0].idx
 }
 
-function buildTeamParties(teamUserList: [string, PartyCharacter[]][], partySize: number, positions: Record<string, number> = {}): PartySlotCharacter[][] {
+function buildTeamParties(
+  teamUserList: [string, PartyCharacter[]][],
+  partySize: number,
+  positions: Record<string, number> = {},
+  bench: PartySlotCharacter[] = []
+): PartySlotCharacter[][] {
   const totalCharacters = teamUserList.reduce((sum, [, chars]) => sum + chars.length, 0)
-  // 한 유저의 캐릭터 수만큼 파티가 있어야 같은 파티에 중복 배치를 막을 수 있음
   const maxUserCharCount = teamUserList.length > 0
     ? Math.max(...teamUserList.map(([, chars]) => chars.length))
     : 0
-  const partyCount = Math.max(1, Math.ceil(totalCharacters / partySize), maxUserCharCount)
+  const partyCount = Math.max(1, Math.floor(totalCharacters / partySize), maxUserCharCount)
   const parties: PartySlotCharacter[][] = Array.from({ length: partyCount }, () => [])
 
   const sortedUsers = [...teamUserList]
@@ -238,19 +296,13 @@ function buildTeamParties(teamUserList: [string, PartyCharacter[]][], partySize:
     ] as [string, PartyCharacter[]])
     .sort((a, b) => (b[1][0]?.combat_power ?? 0) - (a[1][0]?.combat_power ?? 0))
 
-  for (const [userNickname, chars] of sortedUsers) {
+  for (const [, chars] of sortedUsers) {
     for (const char of chars) {
-      // 1순위: 같은 유저가 아직 없는 파티
-      let targetIdx = chooseBestPartyIndex(parties, userNickname, partySize, true)
-
-      // 2순위: 어쩔 수 없으면 같은 유저 있어도 넣음
-      if (targetIdx === -1) {
-        targetIdx = chooseBestPartyIndex(parties, userNickname, partySize, false)
-      }
+      // 같은 유저가 없는 파티에만 배치, 없으면 벤치로
+      const targetIdx = chooseBestPartyIndex(parties, char, partySize)
 
       if (targetIdx === -1) {
-        // 이론상 total capacity는 충분해야 하지만, 혹시 모를 안전장치
-        parties.push([makeSlot(char, false)])
+        bench.push(makeSlot(char, false))
         continue
       }
 
@@ -322,6 +374,7 @@ export function autoAssignTeams(
   }
 
   const teams: PartySlotCharacter[][][] = []
+  const bench: PartySlotCharacter[] = []
 
   for (const teamUserList of teamUsers) {
     if (!teamUserList.length) {
@@ -329,10 +382,10 @@ export function autoAssignTeams(
       continue
     }
 
-    teams.push(buildTeamParties(teamUserList, partySize, characterPositions))
+    teams.push(buildTeamParties(teamUserList, partySize, characterPositions, bench))
   }
 
-  return { teams, bench: [] }
+  return { teams, bench }
 }
 
 export function encodePartyNumber(teamIdx: number, subIdx: number): number {

@@ -25,6 +25,11 @@ export const CLASSES: ClassType[] = [
   
     // 전사 계열
     {
+      name: "knight",
+      label: "기사",
+      type: "tank",
+    },
+    {
       name: "warrior",
       label: "전사",
       type: "tank",

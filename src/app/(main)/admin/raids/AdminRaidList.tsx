@@ -5,7 +5,7 @@ import Image from 'next/image'
 import {
   useAdminRaids, useCreateRaid, useDeleteRaid,
   useCreateSchedule, useUpdateSchedule, useDeleteSchedule,
-  useScheduleApplications, useCancelApplication,
+  useScheduleApplications, useCancelApplication, useClearWeek, useClearAllApplications,
 } from '@/hooks/useAdminRaids'
 import { RaidWithSchedules, RaidSchedule, DAY_LABEL } from '@/types/raid'
 import { CLASSES } from '@/models/classes'
@@ -13,11 +13,15 @@ import { CLASSES } from '@/models/classes'
 const CLASS_LABEL: Record<string, string> = Object.fromEntries(CLASSES.map((c) => [c.name, c.label]))
 import { formatCp } from '@/lib/format'
 import ScheduleModal from './ScheduleModal'
+import BulkApplyModal from './BulkApplyModal'
 
 type ScheduleModalState =
   | { type: 'add'; raidId: string }
   | { type: 'edit'; schedule: RaidSchedule; raidId: string }
   | null
+
+type BulkApplyState = { scheduleId: string; label: string; dayOfWeek: string } | null
+type ClearConfirmState = { scheduleId: string; label: string } | null
 
 export default function AdminRaidList() {
   const { data: raids = [], isLoading } = useAdminRaids()
@@ -25,8 +29,9 @@ export default function AdminRaidList() {
   const deleteRaid = useDeleteRaid()
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [applicantsScheduleId, setApplicantsScheduleId] = useState<string | null>(null)
   const [scheduleModal, setScheduleModal] = useState<ScheduleModalState>(null)
+  const [bulkApply, setBulkApply] = useState<BulkApplyState>(null)
+  const [clearConfirm, setClearConfirm] = useState<ClearConfirmState>(null)
   const [addRaidForm, setAddRaidForm] = useState({ open: false, name: '', image_url: '' })
 
   function toggleExpand(id: string) {
@@ -101,9 +106,13 @@ export default function AdminRaidList() {
                       </button>
                       <div className="flex gap-1 shrink-0">
                         <button
-                          onClick={() => setApplicantsScheduleId(applicantsScheduleId === schedule.id ? null : schedule.id)}
-                          className="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
-                        >신청현황</button>
+                          onClick={() => setBulkApply({ scheduleId: schedule.id, label: `${raid.name} ${DAY_LABEL[schedule.day_of_week]}`, dayOfWeek: schedule.day_of_week })}
+                          className="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-blue-500 hover:bg-blue-50"
+                        >신청 등록</button>
+                        <button
+                          onClick={() => setClearConfirm({ scheduleId: schedule.id, label: `${raid.name} ${DAY_LABEL[schedule.day_of_week]}` })}
+                          className="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-red-400 hover:bg-red-50"
+                        >일괄 삭제</button>
                         <button
                           onClick={() => setScheduleModal({ type: 'edit', schedule, raidId: raid.id })}
                           className="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
@@ -111,8 +120,7 @@ export default function AdminRaidList() {
                       </div>
                     </div>
 
-                    {/* 신청 현황 */}
-                    {applicantsScheduleId === schedule.id && (
+                    {expanded.has(schedule.id) && (
                       <ApplicantPanel scheduleId={schedule.id} />
                     )}
                   </div>
@@ -174,6 +182,25 @@ export default function AdminRaidList() {
           onClose={() => setScheduleModal(null)}
         />
       )}
+
+      {/* 신청 일괄 등록 모달 */}
+      {bulkApply && (
+        <BulkApplyModal
+          scheduleId={bulkApply.scheduleId}
+          scheduleLabel={bulkApply.label}
+          dayOfWeek={bulkApply.dayOfWeek}
+          onClose={() => setBulkApply(null)}
+        />
+      )}
+
+      {/* 신청 일괄 삭제 확인 모달 */}
+      {clearConfirm && (
+        <ClearConfirmModal
+          scheduleId={clearConfirm.scheduleId}
+          label={clearConfirm.label}
+          onClose={() => setClearConfirm(null)}
+        />
+      )}
     </>
   )
 }
@@ -181,6 +208,7 @@ export default function AdminRaidList() {
 function ApplicantPanel({ scheduleId }: { scheduleId: string }) {
   const { data, isLoading } = useScheduleApplications(scheduleId)
   const cancelMutation = useCancelApplication(scheduleId)
+  const clearWeek = useClearWeek(scheduleId)
 
   if (isLoading) return <div className="px-5 py-3 text-sm text-gray-400 animate-pulse">불러오는 중...</div>
 
@@ -198,7 +226,14 @@ function ApplicantPanel({ scheduleId }: { scheduleId: string }) {
     <div className="bg-gray-50 border-t border-gray-100 px-5 py-3">
       {weeks.map((week) => (
         <div key={week} className="mb-3 last:mb-0">
-          <p className="text-xs font-medium text-gray-500 mb-1.5">{week} 신청 ({byWeek[week].length}명)</p>
+          <div className="flex items-center justify-between mb-1.5">
+              <p className="text-xs font-medium text-gray-500">{week} 신청 ({byWeek[week].length}명)</p>
+              <button
+                onClick={() => { if (confirm(`${week} 신청현황을 전체 삭제할까요?`)) clearWeek.mutate({ scheduleId, weekDate: week }) }}
+                disabled={clearWeek.isPending}
+                className="text-xs text-red-400 hover:text-red-600 hover:underline disabled:opacity-50"
+              >전체 삭제</button>
+            </div>
           <div className="flex flex-wrap gap-1.5">
             {byWeek[week].map((app: any) => (
               <span key={app.character_id} className="inline-flex items-center gap-1 text-xs bg-white border border-gray-200 rounded-full pl-2.5 pr-1.5 py-1 text-gray-700">
@@ -216,6 +251,39 @@ function ApplicantPanel({ scheduleId }: { scheduleId: string }) {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+function ClearConfirmModal({ scheduleId, label, onClose }: { scheduleId: string; label: string; onClose: () => void }) {
+  const clearAll = useClearAllApplications(scheduleId)
+
+  function handleConfirm() {
+    clearAll.mutate(undefined, { onSuccess: onClose })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <h2 className="text-base font-bold text-gray-900 mb-2">신청현황 일괄 삭제</h2>
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">{label}</span>의 모든 주차 신청현황을 삭제합니다.
+        </p>
+        <p className="text-xs text-red-500 mt-1">이 작업은 되돌릴 수 없습니다.</p>
+        {clearAll.error && <p className="text-xs text-red-500 mt-2">{clearAll.error.message}</p>}
+        <div className="flex gap-2 mt-5">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+          >취소</button>
+          <button
+            onClick={handleConfirm}
+            disabled={clearAll.isPending}
+            className="flex-1 py-2.5 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 disabled:bg-red-300"
+          >{clearAll.isPending ? '삭제 중...' : '전체 삭제'}</button>
+        </div>
+      </div>
     </div>
   )
 }

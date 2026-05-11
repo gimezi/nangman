@@ -55,6 +55,41 @@ async function cancelApplication({ scheduleId, characterId, weekDate }: { schedu
   if (!res.ok) throw new Error('신청 취소 실패')
 }
 
+async function clearWeekApplications({ scheduleId, weekDate }: { scheduleId: string; weekDate: string }) {
+  const res = await fetch(
+    `/api/admin/schedules/${scheduleId}/applications?weekDate=${encodeURIComponent(weekDate)}`,
+    { method: 'DELETE' }
+  )
+  if (!res.ok) throw new Error('전체 삭제 실패')
+}
+
+async function clearAllApplications(scheduleId: string) {
+  const res = await fetch(`/api/admin/schedules/${scheduleId}/applications`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('일괄 삭제 실패')
+}
+
+async function bulkApply({ scheduleId, rawText, weekDate, clearExisting }: { scheduleId: string; rawText: string; weekDate: string; clearExisting: boolean }) {
+  const res = await fetch(`/api/admin/schedules/${scheduleId}/applications`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rawText, weekDate, clearExisting }),
+  })
+  if (!res.ok) { const { error } = await res.json(); throw new Error(error) }
+  return res.json() as Promise<{ inserted: number; skipped: string[]; missing: MissingEntry[] }>
+}
+
+type MissingEntry = { userNickname: string; userId: string; cls: string; cp: number; isVolunteer: boolean }
+
+async function createAndApply({ scheduleId, weekDate, entries }: { scheduleId: string; weekDate: string; entries: MissingEntry[] }) {
+  const res = await fetch(`/api/admin/schedules/${scheduleId}/applications/create-and-apply`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ weekDate, entries }),
+  })
+  if (!res.ok) { const { error } = await res.json(); throw new Error(error) }
+  return res.json() as Promise<{ created: number; failed: string[] }>
+}
+
 export function useAdminRaids() {
   return useQuery({ queryKey: ['admin-raids'], queryFn: fetchAdminRaids })
 }
@@ -99,3 +134,37 @@ export function useCancelApplication(scheduleId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['schedule-applications', scheduleId] }),
   })
 }
+
+export function useClearWeek(scheduleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: clearWeekApplications,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['schedule-applications', scheduleId] }),
+  })
+}
+
+export function useClearAllApplications(scheduleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => clearAllApplications(scheduleId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['schedule-applications', scheduleId] }),
+  })
+}
+
+export function useBulkApply(scheduleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: bulkApply,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['schedule-applications', scheduleId] }),
+  })
+}
+
+export function useCreateAndApply(scheduleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createAndApply,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['schedule-applications', scheduleId] }),
+  })
+}
+
+export type { MissingEntry }

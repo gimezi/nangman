@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminGuard'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 
 // 스케줄별 가장 최근 저장된 파티에서 캐릭터 → 표시 순서 매핑을 반환
 export async function GET(request: NextRequest) {

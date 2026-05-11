@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx scripts/seed.ts",
-    "seed:applications": "tsx scripts/seedApplications.ts"
+    "seed:applications": "tsx scripts/seedApplications.ts",
+    "reset:characters": "tsx scripts/resetCharacters.ts",
+    "seed:tamaer": "tsx scripts/seedTamaerApplications.ts",
+    "set:volunteers": "tsx scripts/setVolunteers.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

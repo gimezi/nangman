@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminGuard'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { decodePartyNumber } from '@/lib/partyAlgorithm'
 
 // 스케줄별 가장 최근 저장된 파티에서 유저 → 팀 인덱스 매핑을 반환

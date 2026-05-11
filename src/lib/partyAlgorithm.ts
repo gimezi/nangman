@@ -286,7 +286,7 @@ function buildTeamParties(
   const maxUserCharCount = teamUserList.length > 0
     ? Math.max(...teamUserList.map(([, chars]) => chars.length))
     : 0
-  const partyCount = Math.max(1, Math.floor(totalCharacters / partySize), maxUserCharCount)
+  const partyCount = Math.max(1, Math.ceil(totalCharacters / partySize), maxUserCharCount)
   const parties: PartySlotCharacter[][] = Array.from({ length: partyCount }, () => [])
 
   const sortedUsers = [...teamUserList]
@@ -317,11 +317,9 @@ function buildTeamParties(
 /**
  * 자동배치:
  * - teamPreferences(userNickname → teamIdx)가 있으면 해당 팀으로 고정 배치
- * - 나머지 유저는 스네이크 드래프트로 배분
- * - 각 팀의 모든 캐릭터를 다 사용
- * - 팀별로 필요한 파티 수를 자동 계산
+ * - 나머지 유저는 스네이크 드래프트로 균등 분배
+ * - 파티 수 = max(ceil(팀캐릭수 / partySize), 최대유저캐릭수) — 벤치 없음
  * - 같은 유저 캐릭터는 반드시 서로 다른 파티에 배치
- * - bench는 항상 빈 배열
  */
 export function autoAssignTeams(
   characters: PartyCharacter[],
@@ -365,12 +363,43 @@ export function autoAssignTeams(
     teamUsers[teamPreferences[nick]].push([nick, chars])
   }
 
-  // 나머지 유저는 스네이크 드래프트
-  for (let i = 0; i < unpreferredUsers.length; i++) {
-    const round = Math.floor(i / numTeams)
-    const pos = i % numTeams
-    const teamIdx = round % 2 === 0 ? pos : numTeams - 1 - pos
-    teamUsers[teamIdx].push(unpreferredUsers[i])
+  // 최대 캐릭수 유저(heavy)와 나머지(light) 분리
+  const globalMaxCharCount = unpreferredUsers.length > 0
+    ? Math.max(...unpreferredUsers.map(([, chars]) => chars.length))
+    : 0
+  const heavyUsers = unpreferredUsers.filter(([, chars]) => chars.length === globalMaxCharCount)
+  const lightUsers = unpreferredUsers.filter(([, chars]) => chars.length < globalMaxCharCount)
+
+  if (lightUsers.length > 0 && numTeams >= 2) {
+    // heavy 유저는 한 팀에 몰아서 파티 수 최소화
+    // preferred 유저 중 가장 캐릭수 많은 팀에 넣거나, 없으면 팀 0
+    const preferredMaxes = teamUsers.map((team) =>
+      team.reduce((max, [, chars]) => Math.max(max, chars.length), 0)
+    )
+    const maxPreferred = Math.max(...preferredMaxes)
+    const heavyTeamIdx = maxPreferred > 0 ? preferredMaxes.indexOf(maxPreferred) : 0
+
+    for (const user of heavyUsers) {
+      teamUsers[heavyTeamIdx].push(user)
+    }
+
+    // light 유저는 heavy 팀 제외한 나머지 팀에만 스네이크 드래프트
+    const lightTeams = Array.from({ length: numTeams }, (_, i) => i).filter(i => i !== heavyTeamIdx)
+    const n = lightTeams.length
+    for (let i = 0; i < lightUsers.length; i++) {
+      const round = Math.floor(i / n)
+      const pos = i % n
+      const teamIdx = lightTeams[round % 2 === 0 ? pos : n - 1 - pos]
+      teamUsers[teamIdx].push(lightUsers[i])
+    }
+  } else {
+    // 모두 같은 수의 캐릭이거나 팀이 1개면 스네이크 드래프트
+    for (let i = 0; i < unpreferredUsers.length; i++) {
+      const round = Math.floor(i / numTeams)
+      const pos = i % numTeams
+      const teamIdx = round % 2 === 0 ? pos : numTeams - 1 - pos
+      teamUsers[teamIdx].push(unpreferredUsers[i])
+    }
   }
 
   const teams: PartySlotCharacter[][][] = []
@@ -384,6 +413,27 @@ export function autoAssignTeams(
 
     teams.push(buildTeamParties(teamUserList, partySize, characterPositions, bench))
   }
+
+  // 벤치 캐릭터를 다른 팀의 빈 슬롯에 재배치
+  const finalBench: PartySlotCharacter[] = []
+  for (const benchChar of bench) {
+    let placed = false
+    for (const team of teams) {
+      for (const party of team) {
+        if (
+          party.length < partySize &&
+          !party.some((m) => m.userNickname === benchChar.userNickname)
+        ) {
+          party.push(benchChar)
+          placed = true
+          break
+        }
+      }
+      if (placed) break
+    }
+    if (!placed) finalBench.push(benchChar)
+  }
+  bench.splice(0, bench.length, ...finalBench)
 
   return { teams, bench }
 }

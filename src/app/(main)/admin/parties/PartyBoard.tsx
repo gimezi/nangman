@@ -40,6 +40,7 @@ type CharRowProps = {
   subIdx: number
   partyNumber: number
   isSelected: boolean
+  isDuplicateUser: boolean
   allParties: Props['allParties']
   onRowClick: (char: PartySlotCharacter) => void
   onMoveOut: () => void
@@ -53,6 +54,7 @@ function DraggableCharRow({
   subIdx,
   partyNumber,
   isSelected,
+  isDuplicateUser,
   allParties,
   onRowClick,
   onMoveOut,
@@ -72,7 +74,7 @@ function DraggableCharRow({
       <div
         onClick={() => onRowClick(char)}
         className={`flex items-center gap-2 px-3 py-2 cursor-pointer ${
-          isSelected ? 'bg-yellow-50' : 'hover:bg-gray-50'
+          isSelected ? 'bg-yellow-50' : isDuplicateUser ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'
         }`}
       >
         <span
@@ -160,6 +162,18 @@ export default function PartyBoard({
   const { teamIdx, subIdx } = decodePartyNumber(partyNumber)
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: String(partyNumber) })
 
+  const sorted = [...characters].sort((a, b) =>
+    a.userNickname.localeCompare(b.userNickname, 'ko')
+  )
+
+  const nicknameCounts = characters.reduce<Record<string, number>>((acc, c) => {
+    acc[c.userNickname] = (acc[c.userNickname] ?? 0) + 1
+    return acc
+  }, {})
+  const duplicateUsers = new Set(
+    Object.entries(nicknameCounts).filter(([, n]) => n > 1).map(([name]) => name)
+  )
+
   const avg = avgCp(characters)
   const empty = Math.max(0, partySize - characters.length)
   const colorSet = TEAM_COLOR_CLASS[teamColor]
@@ -189,7 +203,7 @@ export default function PartyBoard({
         ref={setDropRef}
         className={`divide-y divide-gray-50 min-h-[40px] transition-colors ${isOver ? 'bg-indigo-50/50' : ''}`}
       >
-        {characters.map((char) => (
+        {sorted.map((char) => (
           <DraggableCharRow
             key={char.slotId}
             char={char}
@@ -197,6 +211,7 @@ export default function PartyBoard({
             subIdx={subIdx}
             partyNumber={partyNumber}
             isSelected={selectedId === char.slotId}
+            isDuplicateUser={duplicateUsers.has(char.userNickname)}
             allParties={allParties}
             onRowClick={(c) => setSelectedId((prev) => (prev === c.slotId ? null : c.slotId))}
             onMoveOut={() => { onMoveOut(char); setSelectedId(null) }}

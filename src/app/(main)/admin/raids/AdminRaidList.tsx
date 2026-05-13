@@ -29,6 +29,7 @@ export default function AdminRaidList() {
   const { data: raids = [], isLoading } = useAdminRaids()
   const createRaid = useCreateRaid()
   const deleteRaid = useDeleteRaid()
+  const deleteSchedule = useDeleteSchedule()
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [scheduleModal, setScheduleModal] = useState<ScheduleModalState>(null)
@@ -166,6 +167,10 @@ export default function AdminRaidList() {
                           onClick={() => setScheduleModal({ type: 'edit', schedule, raidId: raid.id })}
                           className="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
                         >수정</button>
+                        <button
+                          onClick={() => { if (confirm(`${raid.name} ${DAY_LABEL[schedule.day_of_week]} 스케줄을 삭제할까요?`)) deleteSchedule.mutate(schedule.id) }}
+                          className="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-red-400 hover:bg-red-50"
+                        >스케줄 삭제</button>
                       </div>
                     </div>
 

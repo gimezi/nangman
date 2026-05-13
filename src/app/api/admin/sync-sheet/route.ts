@@ -6,9 +6,6 @@ import { parseRaw, type MissingEntry } from '@/app/api/admin/schedules/[schedule
 const SHEET_ID = process.env.GOOGLE_SHEET_ID!
 const SHEET_GID = process.env.GOOGLE_SHEET_GID!
 
-const JS_TO_DOW: Record<number, string> = {
-  0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat',
-}
 
 function parseKoreanTimestamp(ts: string): Date | null {
   const m = ts.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\s*(오전|오후)\s*(\d{1,2}):(\d{2}):(\d{2})/)
@@ -84,8 +81,7 @@ export async function POST() {
   const results: SyncDateResult[] = []
 
   for (const [dateStr, charLines] of byDate) {
-    const dow = JS_TO_DOW[new Date(dateStr + 'T00:00:00').getDay()]
-    const scheduleId = scheduleByDow.get(dow)
+    const scheduleId = scheduleByDow.get('mon')
 
     if (!scheduleId) {
       results.push({ date: dateStr, status: 'no_schedule' })

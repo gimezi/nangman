@@ -249,6 +249,8 @@ function chooseBestPartyIndex(
   parties: PartySlotCharacter[][],
   char: PartyCharacter,
   partySize: number,
+  userCharCount: number,
+  maxTeamCharCount: number,
 ) {
   const charType = getType(char.class)
 
@@ -265,6 +267,9 @@ function chooseBestPartyIndex(
       const diff = countType(a.party, charType) - countType(b.party, charType)
       if (diff !== 0) return diff
     }
+
+    // 캐릭수 적은 유저는 낮은 파티 인덱스(1파티) 우선
+    if (userCharCount < maxTeamCharCount && a.idx !== b.idx) return a.idx - b.idx
 
     // 인원 적은 파티 우선
     if (a.party.length !== b.party.length) return a.party.length - b.party.length
@@ -294,12 +299,16 @@ function buildTeamParties(
       userNickname,
       [...chars].sort((a, b) => b.combat_power - a.combat_power),
     ] as [string, PartyCharacter[]])
-    .sort((a, b) => (b[1][0]?.combat_power ?? 0) - (a[1][0]?.combat_power ?? 0))
+    .sort((a, b) => {
+      // 캐릭수 적은 유저 먼저 배치 → 1파티부터 채워짐
+      if (a[1].length !== b[1].length) return a[1].length - b[1].length
+      return (b[1][0]?.combat_power ?? 0) - (a[1][0]?.combat_power ?? 0)
+    })
 
   for (const [, chars] of sortedUsers) {
     for (const char of chars) {
       // 같은 유저가 없는 파티에만 배치, 없으면 벤치로
-      const targetIdx = chooseBestPartyIndex(parties, char, partySize)
+      const targetIdx = chooseBestPartyIndex(parties, char, partySize, chars.length, maxUserCharCount)
 
       if (targetIdx === -1) {
         bench.push(makeSlot(char, false))

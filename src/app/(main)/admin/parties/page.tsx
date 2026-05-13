@@ -4,9 +4,15 @@ import { supabase } from '@/lib/supabase'
 import PartyManager from './PartyManager'
 import { RaidWithSchedules } from '@/types/raid'
 
-export default async function AdminPartiesPage() {
+export default async function AdminPartiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ scheduleId?: string; weekDate?: string }>
+}) {
   const session = await getSession()
   if (session?.role !== 'admin') redirect('/')
+
+  const { scheduleId, weekDate } = await searchParams
 
   const { data: raids } = await supabase
     .from('raids')
@@ -19,7 +25,11 @@ export default async function AdminPartiesPage() {
         <h1 className="text-2xl font-bold text-gray-900">파티 관리</h1>
         <p className="text-sm text-gray-500 mt-1">레이드 파티를 자동 배치하고 조정해요</p>
       </div>
-      <PartyManager raids={(raids ?? []) as RaidWithSchedules[]} />
+      <PartyManager
+        raids={(raids ?? []) as RaidWithSchedules[]}
+        initialScheduleId={scheduleId}
+        initialWeekDate={weekDate}
+      />
     </div>
   )
 }

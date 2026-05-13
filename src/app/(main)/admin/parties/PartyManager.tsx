@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -31,7 +31,11 @@ import { formatCp } from '@/lib/format'
 import { CLASSES } from '@/models/classes'
 import PartyBoard from './PartyBoard'
 
-type Props = { raids: RaidWithSchedules[] }
+type Props = {
+  raids: RaidWithSchedules[]
+  initialScheduleId?: string
+  initialWeekDate?: string
+}
 
 type PartyMoveTarget =
   | 'bench'
@@ -141,9 +145,10 @@ function DroppableBench({
   )
 }
 
-export default function PartyManager({ raids }: Props) {
-  const [selectedScheduleId, setSelectedScheduleId] = useState('')
-  const [selectedWeekDate, setSelectedWeekDate] = useState<string>('')
+export default function PartyManager({ raids, initialScheduleId, initialWeekDate }: Props) {
+  const [selectedScheduleId, setSelectedScheduleId] = useState(initialScheduleId ?? '')
+  const [selectedWeekDate, setSelectedWeekDate] = useState<string>(initialWeekDate ?? '')
+  const isFirstScheduleEffect = useRef(true)
   const [numTeams, setNumTeams] = useState<number | null>(null)
   
   const [teams, setTeams] = useState<PartySlotCharacter[][][]>([])
@@ -173,6 +178,10 @@ export default function PartyManager({ raids }: Props) {
   )
 
   useEffect(() => {
+    if (isFirstScheduleEffect.current) {
+      isFirstScheduleEffect.current = false
+      return
+    }
     setTeams([])
     setBench([])
     setInitialized(false)
@@ -181,7 +190,6 @@ export default function PartyManager({ raids }: Props) {
   }, [selectedScheduleId])
 
   useEffect(() => {
-    if (numTeams == null) return
     if (!savedParties.length || !applicants.length || initialized) return
 
     const maxTeamIdx = Math.max(0, ...savedParties.map((sp) => decodePartyNumber(sp.party_number).teamIdx))

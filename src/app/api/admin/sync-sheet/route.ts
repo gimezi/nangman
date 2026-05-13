@@ -23,6 +23,16 @@ function toDateString(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// 월요일이면 그대로, 아니면 그 주의 다음 월요일
+function toNextMonday(date: Date): Date {
+  const day = date.getDay()
+  if (day === 1) return date
+  const diff = day === 0 ? 1 : 8 - day
+  const result = new Date(date)
+  result.setDate(date.getDate() + diff)
+  return result
+}
+
 export type SyncDateResult = {
   date: string
   status: 'ok' | 'no_schedule' | 'error'
@@ -52,7 +62,7 @@ export async function POST() {
     if (!timestamp || !charData) continue
     const date = parseKoreanTimestamp(timestamp)
     if (!date) continue
-    const dateStr = toDateString(date)
+    const dateStr = toDateString(toNextMonday(date))
     if (!byDate.has(dateStr)) byDate.set(dateStr, [])
     byDate.get(dateStr)!.push(charData)
   }

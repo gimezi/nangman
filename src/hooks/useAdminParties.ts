@@ -14,8 +14,10 @@ export type SavedParty = {
   }[]
 }
 
-async function fetchApplicants(scheduleId: string): Promise<{ characters: PartyCharacter[]; weekDate: string | null }> {
-  const res = await fetch(`/api/admin/parties/applicants?scheduleId=${scheduleId}`)
+async function fetchApplicants(scheduleId: string, weekDate?: string): Promise<{ characters: PartyCharacter[]; weekDate: string | null; availableWeekDates: string[] }> {
+  const params = new URLSearchParams({ scheduleId })
+  if (weekDate) params.set('weekDate', weekDate)
+  const res = await fetch(`/api/admin/parties/applicants?${params}`)
   if (!res.ok) throw new Error('신청 인원 조회 실패')
   return res.json()
 }
@@ -49,10 +51,10 @@ async function saveParties(payload: {
   return res.json()
 }
 
-export function useApplicants(scheduleId: string) {
+export function useApplicants(scheduleId: string, weekDate?: string) {
   return useQuery({
-    queryKey: ['applicants', scheduleId],
-    queryFn: () => fetchApplicants(scheduleId),
+    queryKey: ['applicants', scheduleId, weekDate],
+    queryFn: () => fetchApplicants(scheduleId, weekDate),
     enabled: !!scheduleId,
   })
 }

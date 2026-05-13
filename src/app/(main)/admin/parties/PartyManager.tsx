@@ -143,6 +143,7 @@ function DroppableBench({
 
 export default function PartyManager({ raids }: Props) {
   const [selectedScheduleId, setSelectedScheduleId] = useState('')
+  const [selectedWeekDate, setSelectedWeekDate] = useState<string>('')
   const [numTeams, setNumTeams] = useState<number | null>(null)
   
   const [teams, setTeams] = useState<PartySlotCharacter[][][]>([])
@@ -157,9 +158,10 @@ export default function PartyManager({ raids }: Props) {
 
   const selectedSchedule = raids.flatMap((r) => r.raid_schedules).find((s) => s.id === selectedScheduleId)
 
-  const { data: applicantData, isLoading: loadingApplicants } = useApplicants(selectedScheduleId)
+  const { data: applicantData, isLoading: loadingApplicants } = useApplicants(selectedScheduleId, selectedWeekDate || undefined)
   const applicants = applicantData?.characters ?? []
-  const weekDate = applicantData?.weekDate ?? ''
+  const availableWeekDates = applicantData?.availableWeekDates ?? []
+  const weekDate = selectedWeekDate || applicantData?.weekDate || ''
 
   const { data: savedParties = [], isLoading: loadingSaved } = useSavedParties(selectedScheduleId, weekDate)
   const { data: teamPreferences = {} } = useTeamPreferences(selectedScheduleId)
@@ -175,6 +177,7 @@ export default function PartyManager({ raids }: Props) {
     setBench([])
     setInitialized(false)
     setNumTeams(null)
+    setSelectedWeekDate('')
   }, [selectedScheduleId])
 
   useEffect(() => {
@@ -412,6 +415,26 @@ export default function PartyManager({ raids }: Props) {
             </select>
           </div>
 
+          {selectedScheduleId && availableWeekDates.length > 0 && (
+            <div className="flex-1 min-w-36">
+              <label className="block text-xs font-medium text-gray-500 mb-1">주차</label>
+              <select
+                value={weekDate}
+                onChange={(e) => {
+                  setSelectedWeekDate(e.target.value)
+                  setTeams([])
+                  setBench([])
+                  setInitialized(false)
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {availableWeekDates.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {selectedScheduleId && (
             <>
               <div>
@@ -449,7 +472,7 @@ export default function PartyManager({ raids }: Props) {
             {loadingApplicants || loadingSaved
               ? '불러오는 중...'
               : weekDate
-                ? `${weekDate} 기준 · 신청 ${applicants.length}명`
+                ? `신청 ${applicants.length}명`
                 : '신청 데이터 없음'}
           </p>
         )}

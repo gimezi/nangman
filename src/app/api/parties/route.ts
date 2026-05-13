@@ -18,7 +18,16 @@ export async function GET(request: NextRequest) {
 
   if (!schedule) return NextResponse.json({ error: '스케줄 없음' }, { status: 404 })
 
-  const weekDate = formatWeekDate(
+  // 저장된 파티 중 가장 최근 주차를 우선 사용, 없으면 마감 기준으로 계산
+  const { data: latestParty } = await supabase
+    .from('parties')
+    .select('week_date')
+    .eq('raid_schedule_id', scheduleId)
+    .order('week_date', { ascending: false })
+    .limit(1)
+    .single()
+
+  const weekDate = latestParty?.week_date ?? formatWeekDate(
     getWeekDate(schedule.day_of_week, schedule.deadline_day, schedule.deadline_time)
   )
   const currentWeekDate = weekDate

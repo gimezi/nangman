@@ -12,20 +12,19 @@ export async function GET(request: NextRequest) {
 
   if (!scheduleId) return NextResponse.json({ error: '파라미터 누락' }, { status: 400 })
 
-  // weekDate 미제공 시 → 가장 가까운 미래 주차 자동 선택
-  if (!weekDate) {
-    const { data: weeks } = await supabase
-      .from('raid_applications')
-      .select('week_date')
-      .eq('raid_schedule_id', scheduleId)
-      .order('week_date', { ascending: true })
+  // 사용 가능한 날짜 목록 (최신순)
+  const { data: weeks } = await supabase
+    .from('raid_applications')
+    .select('week_date')
+    .eq('raid_schedule_id', scheduleId)
+    .order('week_date', { ascending: false })
 
-    if (!weeks?.length) return NextResponse.json({ characters: [], weekDate: null })
+  const availableWeekDates = [...new Set((weeks ?? []).map((w) => w.week_date))]
 
-    const today = new Date().toISOString().split('T')[0]
-    const upcoming = weeks.find((w) => w.week_date >= today)
-    weekDate = upcoming?.week_date ?? weeks[weeks.length - 1].week_date
-  }
+  if (!availableWeekDates.length) return NextResponse.json({ characters: [], weekDate: null, availableWeekDates: [] })
+
+  // weekDate 미제공 시 → 가장 최신 주차
+  if (!weekDate) weekDate = availableWeekDates[0]
 
   const { data, error } = await supabase
     .from('raid_applications')
@@ -48,5 +47,5 @@ export async function GET(request: NextRequest) {
     isVolunteer: a.is_volunteer ?? false,
   })) ?? []
 
-  return NextResponse.json({ characters, weekDate })
+  return NextResponse.json({ characters, weekDate, availableWeekDates })
 }

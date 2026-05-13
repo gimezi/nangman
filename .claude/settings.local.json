@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dir C:Usersyeji1Desktopprojectsnangman *)"
+      "Bash(dir C:Usersyeji1Desktopprojectsnangman *)",
+      "Bash(npx tsc *)"
     ]
   }
 }

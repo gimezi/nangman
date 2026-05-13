@@ -6,7 +6,9 @@ import {
   useAdminRaids, useCreateRaid, useDeleteRaid,
   useCreateSchedule, useUpdateSchedule, useDeleteSchedule,
   useScheduleApplications, useCancelApplication, useClearWeek, useClearAllApplications,
+  useSyncSheet,
 } from '@/hooks/useAdminRaids'
+import type { SyncDateResult } from '@/app/api/admin/sync-sheet/route'
 import { RaidWithSchedules, RaidSchedule, DAY_LABEL } from '@/types/raid'
 import { CLASSES } from '@/models/classes'
 
@@ -33,6 +35,8 @@ export default function AdminRaidList() {
   const [bulkApply, setBulkApply] = useState<BulkApplyState>(null)
   const [clearConfirm, setClearConfirm] = useState<ClearConfirmState>(null)
   const [addRaidForm, setAddRaidForm] = useState({ open: false, name: '', image_url: '' })
+  const [syncResult, setSyncResult] = useState<SyncDateResult[] | null>(null)
+  const syncSheet = useSyncSheet()
 
   function toggleExpand(id: string) {
     setExpanded((prev) => {
@@ -48,8 +52,19 @@ export default function AdminRaidList() {
 
   return (
     <>
-      {/* 레이드 추가 버튼 */}
-      <div className="flex justify-end mb-4">
+      {/* 상단 버튼 */}
+      <div className="flex justify-between items-center mb-4">
+        <button
+          onClick={() =>
+            syncSheet.mutate(undefined, {
+              onSuccess: (data) => setSyncResult(data.results),
+            })
+          }
+          disabled={syncSheet.isPending}
+          className="px-4 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:bg-emerald-300 transition-colors"
+        >
+          {syncSheet.isPending ? '동기화 중...' : '구글 시트 동기화'}
+        </button>
         <button
           onClick={() => setAddRaidForm({ open: true, name: '', image_url: '' })}
           className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -57,6 +72,40 @@ export default function AdminRaidList() {
           + 레이드 추가
         </button>
       </div>
+
+      {/* 동기화 결과 */}
+      {syncResult && (
+        <div className="mb-4 bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-gray-800">동기화 결과</p>
+            <button onClick={() => setSyncResult(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+          </div>
+          {syncResult.length === 0 ? (
+            <p className="text-sm text-gray-400">시트에 데이터가 없습니다.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {syncResult.map((r) => (
+                <div key={r.date} className={`rounded-lg px-3 py-2 text-sm ${r.status === 'ok' ? 'bg-green-50 border border-green-200' : r.status === 'no_schedule' ? 'bg-gray-50 border border-gray-200' : 'bg-red-50 border border-red-200'}`}>
+                  <span className="font-medium">{r.date}</span>
+                  {r.status === 'ok' && (
+                    <span className="text-green-700 ml-2">{r.inserted}명 등록
+                      {r.skipped && r.skipped.length > 0 && <span className="text-gray-500 ml-1">· 유저없음 {r.skipped.length}명</span>}
+                      {r.missing && r.missing.length > 0 && <span className="text-amber-600 ml-1">· 캐릭없음 {r.missing.length}개</span>}
+                    </span>
+                  )}
+                  {r.status === 'no_schedule' && <span className="text-gray-500 ml-2">해당 요일 스케줄 없음</span>}
+                  {r.status === 'error' && <span className="text-red-600 ml-2">등록 오류</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {syncSheet.error && (
+        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+          {syncSheet.error.message}
+        </div>
+      )}
 
       <div className="flex flex-col gap-4">
         {raids.map((raid: RaidWithSchedules) => (

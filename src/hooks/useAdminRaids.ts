@@ -167,4 +167,18 @@ export function useCreateAndApply(scheduleId: string) {
   })
 }
 
+async function syncSheet() {
+  const res = await fetch('/api/admin/sync-sheet', { method: 'POST' })
+  if (!res.ok) { const { error } = await res.json(); throw new Error(error ?? '시트 동기화 실패') }
+  return res.json() as Promise<{ results: import('@/app/api/admin/sync-sheet/route').SyncDateResult[] }>
+}
+
+export function useSyncSheet() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: syncSheet,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['schedule-applications'] }),
+  })
+}
+
 export type { MissingEntry }

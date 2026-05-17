@@ -49,7 +49,7 @@ async function deleteUser(id: string) {
   }
 }
 
-async function createCharacter(body: { user_id: string; nickname: string; class: string; combat_power: number }) {
+async function createCharacter(body: { user_id: string; nickname: string; class: string; combat_power: number; server?: string | null }) {
   const res = await fetch('/api/admin/characters', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -62,7 +62,7 @@ async function createCharacter(body: { user_id: string; nickname: string; class:
   return res.json()
 }
 
-async function updateCharacter({ id, ...body }: { id: string; nickname: string; class: string; combat_power: number }) {
+async function updateCharacter({ id, ...body }: { id: string; nickname: string; class: string; combat_power: number; server?: string | null }) {
   const res = await fetch(`/api/admin/characters/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -128,6 +128,23 @@ export function useAdminDeleteCharacter() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: deleteCharacter,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+  })
+}
+
+async function syncCp(): Promise<{ created: number; updated: number; deleted: number; skipped: string[] }> {
+  const res = await fetch('/api/admin/sync-cp', { method: 'POST' })
+  if (!res.ok) {
+    const { error } = await res.json()
+    throw new Error(error ?? '전투력 동기화에 실패했어요.')
+  }
+  return res.json()
+}
+
+export function useSyncCp() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: syncCp,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   })
 }

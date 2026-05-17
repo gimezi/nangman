@@ -9,7 +9,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   if (guard.error) return guard.error
 
   const { id } = await params
-  const { nickname, class: cls, combat_power } = await request.json()
+  const { nickname, class: cls, combat_power, server } = await request.json()
 
   if (!nickname || !cls || combat_power == null) {
     return NextResponse.json({ error: '모든 항목을 입력해주세요.' }, { status: 400 })
@@ -17,7 +17,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
   const { data, error } = await supabase
     .from('characters')
-    .update({ nickname, class: cls, combat_power })
+    .update({ nickname, class: cls, combat_power, server: server ?? null })
     .eq('id', id)
     .select()
     .single()

@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, nickname, role, created_at, characters(id, nickname, class, combat_power)')
+    .select('id, nickname, role, created_at, characters(id, nickname, class, combat_power, server)')
     .order('created_at')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -28,6 +28,7 @@ export default function AdminCharacterModal({ mode, userId, character, userNickn
     nickname: character?.nickname ?? '',
     class: character?.class ?? '',
     combat_power: character?.combat_power?.toString() ?? '',
+    server: character?.server ?? '',
   })
 
   async function handleSubmit(e: React.FormEvent) {
@@ -36,6 +37,7 @@ export default function AdminCharacterModal({ mode, userId, character, userNickn
       nickname: form.nickname,
       class: form.class,
       combat_power: parseInt(form.combat_power, 10),
+      server: form.server.trim() || null,
     }
     if (mode === 'add' && userId) {
       addMutation.mutate({ user_id: userId, ...payload }, { onSuccess: onClose })
@@ -94,6 +96,16 @@ export default function AdminCharacterModal({ mode, userId, character, userNickn
               min="0"
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">서버 <span className="text-gray-400 font-normal">(선택)</span></label>
+            <input
+              type="text"
+              value={form.server}
+              onChange={(e) => setForm((f) => ({ ...f, server: e.target.value }))}
+              placeholder="예: 라사, 몰리"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           {error && <p className="text-red-500 text-sm text-center">{error}</p>}

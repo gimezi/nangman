@@ -64,3 +64,34 @@
    - 파티는 한번에 1~3개 진행 가능, 기본은 2개(해당 페이지에서 숫자 조절가능, 숫자 조절 시 다시 배치)
    - 각각의 유저를 드래그, 드랍해서 구성을 변경할 수 있음
    - 파티마다 직업과 투력이 한눈에 보이고 평균 투력도 확인 가능
+
+
+# 구현 완료 기능
+
+## Discord 웹훅 연동 (src/app/api/admin/discord/)
+- `route.ts`: 어드민 전용 API. `next/og`의 `ImageResponse`로 팀별 파티 구성 이미지(PNG) 생성 후 Discord 포럼 채널에 파일 첨부로 전송
+  - 폰트: jsDelivr에서 NotoSansKR woff(woff2 아님, Satori 미지원)를 런타임 로드 후 메모리 캐시
+  - `partyImage.tsx`: 팀별 JSX 레이아웃 (팀 색상, 파티 카드, 멤버/직업/전투력)
+  - Discord 포럼 채널은 반드시 `thread_name` 필요, `?wait=true` 붙여야 응답 JSON 받음
+- `/parties` 페이지에 어드민 전용 "파티 수정" 버튼 + "디스코드 공유" 버튼 표시
+
+## /parties 페이지 (src/app/(main)/parties/)
+- 저장된 파티 중 가장 최근 주차를 자동으로 표시 (다음 주 아님)
+- 팀별 그리드 레이아웃 (홍팀/백팀 나란히)
+- 파티 박스 클릭 시 "홍팀 1파티 - [닉네임/닉네임/...]" 형식으로 클립보드 복사 + 스낵바
+- 어드민 전용 버튼: "파티 수정" (→ /admin/parties?scheduleId=&weekDate=), "디스코드 공유"
+
+## /admin/parties 수정 진입 (src/app/(main)/admin/parties/)
+- URL 파라미터 `scheduleId`, `weekDate`로 진입 시 해당 스케줄/주차 자동 선택
+- 저장된 파티가 있으면 팀 수 버튼 없이도 자동 로드 (numTeams 체크 제거)
+- 첫 마운트 시 스케줄 reset effect 건너뜀 (isFirstScheduleEffect ref)
+
+## 구글 시트 동기화 (src/app/api/admin/sync-sheet/)
+- 공개 구글 스프레드시트 CSV를 파싱해서 레이드 신청 자동 등록
+- 한국어 타임스탬프("2026. 5. 11 오후 3:30:52") 파싱 후 가장 가까운 월요일 날짜로 매핑
+- 환경변수: `GOOGLE_SHEET_ID`, `GOOGLE_SHEET_GID`
+
+## 환경변수 (.env.local)
+- `DISCORD_WEBHOOK_URL`: Discord 포럼 채널 웹훅 URL
+- `GOOGLE_SHEET_ID`, `GOOGLE_SHEET_GID`: 구글 시트 연동
+- `JWT_SECRET`, `NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`: 기존

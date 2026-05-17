@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, AdminUser } from '@/hooks/useAdminUsers'
+import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, AdminUser, useSyncCp } from '@/hooks/useAdminUsers'
 import { ClassType } from '@/models/classes'
 import { formatCp } from '@/lib/format'
 import AdminCharacterModal from './AdminCharacterModal'
@@ -26,11 +26,13 @@ export default function AdminCharacterList({ classes }: Props) {
   const updateRole = useUpdateUserRole()
   const deleteUser = useDeleteUser()
   const deleteChar = useAdminDeleteCharacter()
+  const syncCp = useSyncCp()
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [modal, setModal] = useState<ModalState>(null)
   const [newNickname, setNewNickname] = useState('')
   const [search, setSearch] = useState('')
+  const [syncResult, setSyncResult] = useState<{ created: number; updated: number; deleted: number; skipped: string[] } | null>(null)
 
   function toggleExpand(id: string) {
     setExpanded((prev) => {
@@ -59,7 +61,7 @@ export default function AdminCharacterList({ classes }: Props) {
 
   return (
     <>
-      {/* 검색 + 유저 추가 */}
+      {/* 검색 + 버튼 */}
       <div className="flex gap-2 mb-4">
         <input
           type="text"
@@ -69,12 +71,49 @@ export default function AdminCharacterList({ classes }: Props) {
           className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
+          onClick={() =>
+            syncCp.mutate(undefined, {
+              onSuccess: (data) => setSyncResult(data),
+            })
+          }
+          disabled={syncCp.isPending}
+          className="px-4 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:bg-emerald-300 transition-colors shrink-0"
+        >
+          {syncCp.isPending ? '동기화 중...' : '전투력 동기화'}
+        </button>
+        <button
           onClick={() => setModal({ type: 'addUser' })}
           className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shrink-0"
         >
           + 길드원 추가
         </button>
       </div>
+
+      {/* 동기화 결과 */}
+      {syncResult && (
+        <div className="mb-4 bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold text-gray-800">전투력 동기화 결과</p>
+            <button onClick={() => setSyncResult(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+          </div>
+          <div className="flex gap-3 text-sm mt-1">
+            {syncResult.created > 0 && <span className="text-blue-600">+{syncResult.created} 생성</span>}
+            {syncResult.updated > 0 && <span className="text-green-700">{syncResult.updated} 업데이트</span>}
+            {syncResult.deleted > 0 && <span className="text-red-500">-{syncResult.deleted} 삭제</span>}
+            {syncResult.created === 0 && syncResult.updated === 0 && syncResult.deleted === 0 && (
+              <span className="text-gray-400">변경사항 없음</span>
+            )}
+          </div>
+          {syncResult.skipped.length > 0 && (
+            <p className="text-xs text-gray-400 mt-1">유저 없음: {syncResult.skipped.join(', ')}</p>
+          )}
+        </div>
+      )}
+      {syncCp.error && (
+        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+          {syncCp.error.message}
+        </div>
+      )}
 
       <p className="text-xs text-gray-400 mb-3">총 {users.length}명 · {users.reduce((s, u) => s + u.characters.length, 0)}개 캐릭터</p>
 
@@ -147,6 +186,9 @@ export default function AdminCharacterList({ classes }: Props) {
                                   <span className="text-sm font-medium text-gray-800 truncate">{char.nickname}</span>
                                   {cls && (
                                     <span className="text-xs text-gray-500 shrink-0">{cls.label}</span>
+                                  )}
+                                  {char.server && (
+                                    <span className="text-xs px-1.5 py-0.5 bg-indigo-50 text-indigo-500 rounded shrink-0">{char.server}</span>
                                   )}
                                 </div>
                                 <span className="text-xs text-gray-400">{formatCp(char.combat_power)}</span>

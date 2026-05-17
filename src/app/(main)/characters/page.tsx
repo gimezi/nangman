@@ -6,6 +6,7 @@ export type Character = {
   nickname: string
   class: string
   combat_power: number
+  server?: string | null
 }
 
 export default function CharactersPage() {

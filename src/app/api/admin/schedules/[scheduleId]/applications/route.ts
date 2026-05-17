@@ -106,9 +106,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     const char = available[0]
     const newCp = Math.round(entry.cp * 10000)
-    if (newCp > char.combat_power) {
-      await supabase.from('characters').update({ combat_power: newCp }).eq('id', char.id)
-    }
+    await supabase.from('characters').update({ combat_power: newCp }).eq('id', char.id)
 
     usedCharIds.set(key, [...alreadyUsed, char.id])
     inserts.push({ raid_schedule_id: scheduleId, character_id: char.id, week_date: weekDate, is_volunteer: entry.isVolunteer })

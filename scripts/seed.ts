@@ -40,7 +40,7 @@ const CLASS_LABEL_MAP: Record<string, string> = {
 
 async function fetchCSV(): Promise<string> {
   const res = await fetch(
-    'https://docs.google.com/spreadsheets/d/1qw1lCQaUZlaypqFUCtpL6lrkBcMf-3dNrWm9rm7TFuk/export?format=csv'
+    'https://docs.google.com/spreadsheets/d/1uC-Ua5WAjzbip_yRmtk94GepJQnpL2bm34SxoV9_Ezk/export?format=csv&gid=880945779'
   )
   return res.text()
 }
@@ -72,8 +72,9 @@ function parseCSV(csv: string) {
       }
     }
 
-    // 부캐 1~5 (cols[3~12])
-    for (let j = 0; j < 5; j++) {
+    // 부캐 (cols[3]부터 2열씩)
+    const maxSubs = Math.floor((cols.length - 3) / 2)
+    for (let j = 0; j < maxSubs; j++) {
       const classCol = cols[3 + j * 2]?.trim()
       const cpCol = parseFloat(cols[4 + j * 2]?.trim())
       if (classCol && !isNaN(cpCol)) {

@@ -15,7 +15,7 @@ export type PartySlotCharacter = PartyCharacter & {
   isDuplicate: boolean
 }
 
-export const TEAM_NAMES = ['홍팀', '백팀', '청팀'] as const
+export const TEAM_NAMES = ['홍팀', '청팀', '청팀'] as const
 export type TeamName = (typeof TEAM_NAMES)[number]
 
 function getType(cls: string): 'support' | 'tank' | 'dealer' {
@@ -372,42 +372,44 @@ export function autoAssignTeams(
     teamUsers[teamPreferences[nick]].push([nick, chars])
   }
 
-  // 최대 캐릭수 유저(heavy)와 나머지(light) 분리
-  const globalMaxCharCount = unpreferredUsers.length > 0
-    ? Math.max(...unpreferredUsers.map(([, chars]) => chars.length))
-    : 0
-  const heavyUsers = unpreferredUsers.filter(([, chars]) => chars.length === globalMaxCharCount)
-  const lightUsers = unpreferredUsers.filter(([, chars]) => chars.length < globalMaxCharCount)
+  // 캐릭 수 내림차순 정렬: 많은 캐릭 유저부터 팀0(홍팀)에 채우고, 자리 없으면 다음 팀
+  // "자리 있음" = 이 유저를 넣어도 팀의 파티 수 * partySize 용량을 초과하지 않음
+  const sortedByCharCount = [...unpreferredUsers].sort((a, b) => {
+    if (b[1].length !== a[1].length) return b[1].length - a[1].length
+    return (b[1][0]?.combat_power ?? 0) - (a[1][0]?.combat_power ?? 0)
+  })
 
-  if (lightUsers.length > 0 && numTeams >= 2) {
-    // heavy 유저는 한 팀에 몰아서 파티 수 최소화
-    // preferred 유저 중 가장 캐릭수 많은 팀에 넣거나, 없으면 팀 0
-    const preferredMaxes = teamUsers.map((team) =>
-      team.reduce((max, [, chars]) => Math.max(max, chars.length), 0)
-    )
-    const maxPreferred = Math.max(...preferredMaxes)
-    const heavyTeamIdx = maxPreferred > 0 ? preferredMaxes.indexOf(maxPreferred) : 0
+  // preferred 유저가 이미 들어간 수량을 반영해서 초기화
+  const teamCharCounts = teamUsers.map((team) =>
+    team.reduce((sum, [, chars]) => sum + chars.length, 0)
+  )
+  const teamMaxUserChars = teamUsers.map((team) =>
+    team.reduce((max, [, chars]) => Math.max(max, chars.length), 0)
+  )
 
-    for (const user of heavyUsers) {
-      teamUsers[heavyTeamIdx].push(user)
+  for (const user of sortedByCharCount) {
+    const userCharCount = user[1].length
+    let placed = false
+
+    for (let t = 0; t < numTeams; t++) {
+      // 이 유저를 넣었을 때 필요한 파티 수
+      const partiesNeeded = Math.max(teamMaxUserChars[t], userCharCount)
+      const capacity = partiesNeeded * partySize
+      if (teamCharCounts[t] + userCharCount <= capacity) {
+        teamUsers[t].push(user)
+        teamCharCounts[t] += userCharCount
+        teamMaxUserChars[t] = Math.max(teamMaxUserChars[t], userCharCount)
+        placed = true
+        break
+      }
     }
 
-    // light 유저는 heavy 팀 제외한 나머지 팀에만 스네이크 드래프트
-    const lightTeams = Array.from({ length: numTeams }, (_, i) => i).filter(i => i !== heavyTeamIdx)
-    const n = lightTeams.length
-    for (let i = 0; i < lightUsers.length; i++) {
-      const round = Math.floor(i / n)
-      const pos = i % n
-      const teamIdx = lightTeams[round % 2 === 0 ? pos : n - 1 - pos]
-      teamUsers[teamIdx].push(lightUsers[i])
-    }
-  } else {
-    // 모두 같은 수의 캐릭이거나 팀이 1개면 스네이크 드래프트
-    for (let i = 0; i < unpreferredUsers.length; i++) {
-      const round = Math.floor(i / numTeams)
-      const pos = i % numTeams
-      const teamIdx = round % 2 === 0 ? pos : numTeams - 1 - pos
-      teamUsers[teamIdx].push(unpreferredUsers[i])
+    // 어느 팀에도 안 들어가면 마지막 팀에 밀어 넣음
+    if (!placed) {
+      const lastIdx = numTeams - 1
+      teamUsers[lastIdx].push(user)
+      teamCharCounts[lastIdx] += userCharCount
+      teamMaxUserChars[lastIdx] = Math.max(teamMaxUserChars[lastIdx], userCharCount)
     }
   }
 

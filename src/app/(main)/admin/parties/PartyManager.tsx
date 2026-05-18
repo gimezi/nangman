@@ -270,7 +270,8 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
   function handleAutoAssign() {
     if (!selectedSchedule || !numTeams) return
 
-    const result = autoAssignTeams(applicants, numTeams, selectedSchedule.party_size, teamPreferences, characterPositions)
+    // 자동배치는 과거 팀 선호도 무시하고 새로 계산
+    const result = autoAssignTeams(applicants, numTeams, selectedSchedule.party_size, {}, {})
     setTeams(result.teams)
     setBench(result.bench)
     setInitialized(true)
@@ -295,7 +296,7 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
       }
     }
 
-    const result = autoAssignTeams([...allOriginalCharsMap.values()], nextNumTeams, selectedSchedule.party_size, teamPreferences, characterPositions)
+    const result = autoAssignTeams([...allOriginalCharsMap.values()], nextNumTeams, selectedSchedule.party_size, {}, {})
     setTeams(result.teams)
     setBench(result.bench)
     setInitialized(true)
@@ -354,19 +355,15 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
   }
 
   function removeParty(teamIdx: number, subIdx: number) {
+    const removed = (teams[teamIdx]?.[subIdx] ?? []).filter((c) => !c.isDuplicate)
+
     setTeams((prev) => {
       const next = prev.map((team) => team.map((party) => [...party]))
-      const removed = next[teamIdx]?.[subIdx] ?? []
-
       next[teamIdx] = next[teamIdx].filter((_, i) => i !== subIdx)
-
-      setBench((benchPrev) => [
-        ...benchPrev,
-        ...removed.filter((c) => !c.isDuplicate),
-      ])
-
       return next.map((team) => team.filter((party) => party))
     })
+
+    setBench((prev) => [...prev, ...removed])
   }
 
   function handleSave() {

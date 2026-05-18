@@ -4,7 +4,7 @@ import { CLASSES } from '@/models/classes'
 const CLASS_LABEL = Object.fromEntries(CLASSES.map((c) => [c.name, c.label]))
 const CLASS_TYPE = Object.fromEntries(CLASSES.map((c) => [c.name, c.type]))
 
-export const TEAM_NAMES = ['홍팀', '백팀', '청팀']
+export const TEAM_NAMES = ['홍팀', '청팀', '청팀']
 const TEAM_BG = ['#fff5f5', '#eff6ff', '#f0fdf4']
 const TEAM_HEADER_BG = ['#fee2e2', '#dbeafe', '#dcfce7']
 const TEAM_COLOR = ['#dc2626', '#2563eb', '#16a34a']

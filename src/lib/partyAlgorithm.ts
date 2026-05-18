@@ -268,10 +268,12 @@ function chooseBestPartyIndex(
       if (diff !== 0) return diff
     }
 
-    // 캐릭수 적은 유저는 낮은 파티 인덱스(1파티) 우선
-    if (userCharCount < maxTeamCharCount && a.idx !== b.idx) return a.idx - b.idx
+    // 직업 겹침이 적은 파티 우선
+    const classOverlapA = a.party.filter((c) => c.class === char.class).length
+    const classOverlapB = b.party.filter((c) => c.class === char.class).length
+    if (classOverlapA !== classOverlapB) return classOverlapA - classOverlapB
 
-    // 인원 적은 파티 우선
+    // 인원 적은 파티 우선 (단캐릭은 자연스럽게 마지막 빈 자리로)
     if (a.party.length !== b.party.length) return a.party.length - b.party.length
 
     // 평균 전투력 낮은 파티 우선 (강한 캐릭터 고르게 분배)
@@ -300,8 +302,8 @@ function buildTeamParties(
       [...chars].sort((a, b) => b.combat_power - a.combat_power),
     ] as [string, PartyCharacter[]])
     .sort((a, b) => {
-      // 캐릭수 적은 유저 먼저 배치 → 1파티부터 채워짐
-      if (a[1].length !== b[1].length) return a[1].length - b[1].length
+      // 캐릭수 많은 유저 먼저 배치 → 파티가 다 찬 뒤 단캐릭이 남은 자리 채움
+      if (b[1].length !== a[1].length) return b[1].length - a[1].length
       return (b[1][0]?.combat_power ?? 0) - (a[1][0]?.combat_power ?? 0)
     })
 
@@ -373,12 +375,6 @@ export function autoAssignTeams(
   }
 
   // 캐릭 수 내림차순 정렬: 많은 캐릭 유저부터 팀0(홍팀)에 채우고, 자리 없으면 다음 팀
-  // "자리 있음" = 이 유저를 넣어도 팀의 파티 수 * partySize 용량을 초과하지 않음
-  const sortedByCharCount = [...unpreferredUsers].sort((a, b) => {
-    if (b[1].length !== a[1].length) return b[1].length - a[1].length
-    return (b[1][0]?.combat_power ?? 0) - (a[1][0]?.combat_power ?? 0)
-  })
-
   // preferred 유저가 이미 들어간 수량을 반영해서 초기화
   const teamCharCounts = teamUsers.map((team) =>
     team.reduce((sum, [, chars]) => sum + chars.length, 0)
@@ -387,31 +383,37 @@ export function autoAssignTeams(
     team.reduce((max, [, chars]) => Math.max(max, chars.length), 0)
   )
 
-  for (const user of sortedByCharCount) {
+  function greedyPlace(user: (typeof unpreferredUsers)[0]) {
     const userCharCount = user[1].length
-    let placed = false
-
     for (let t = 0; t < numTeams; t++) {
-      // 이 유저를 넣었을 때 필요한 파티 수
       const partiesNeeded = Math.max(teamMaxUserChars[t], userCharCount)
       const capacity = partiesNeeded * partySize
       if (teamCharCounts[t] + userCharCount <= capacity) {
         teamUsers[t].push(user)
         teamCharCounts[t] += userCharCount
         teamMaxUserChars[t] = Math.max(teamMaxUserChars[t], userCharCount)
-        placed = true
-        break
+        return
       }
     }
-
-    // 어느 팀에도 안 들어가면 마지막 팀에 밀어 넣음
-    if (!placed) {
-      const lastIdx = numTeams - 1
-      teamUsers[lastIdx].push(user)
-      teamCharCounts[lastIdx] += userCharCount
-      teamMaxUserChars[lastIdx] = Math.max(teamMaxUserChars[lastIdx], userCharCount)
-    }
+    // 어느 팀에도 안 들어가면 마지막 팀에 밀어 넣음 (파티 수 늘어남)
+    const lastIdx = numTeams - 1
+    teamUsers[lastIdx].push(user)
+    teamCharCounts[lastIdx] += userCharCount
+    teamMaxUserChars[lastIdx] = Math.max(teamMaxUserChars[lastIdx], userCharCount)
   }
+
+  const sortDesc = (a: (typeof unpreferredUsers)[0], b: (typeof unpreferredUsers)[0]) => {
+    if (b[1].length !== a[1].length) return b[1].length - a[1].length
+    return (b[1][0]?.combat_power ?? 0) - (a[1][0]?.combat_power ?? 0)
+  }
+
+  // Phase 1: 다캐릭(2+) 유저 → 홍팀 꽉 채우기 → 남은 다캐릭 → 백팀 (파티 수 최소화)
+  const multiCharUsers = [...unpreferredUsers].filter(([, c]) => c.length >= 2).sort(sortDesc)
+  for (const user of multiCharUsers) greedyPlace(user)
+
+  // Phase 2: 단캐릭 유저 → 홍팀 남은 자리 → 백팀
+  const singleCharUsers = [...unpreferredUsers].filter(([, c]) => c.length < 2).sort(sortDesc)
+  for (const user of singleCharUsers) greedyPlace(user)
 
   const teams: PartySlotCharacter[][][] = []
   const bench: PartySlotCharacter[] = []
@@ -425,22 +427,32 @@ export function autoAssignTeams(
     teams.push(buildTeamParties(teamUserList, partySize, characterPositions, bench))
   }
 
-  // 벤치 캐릭터를 다른 팀의 빈 슬롯에 재배치
+  // 유저 → 팀 인덱스 매핑 (이미 배치된 캐릭터 기준)
+  const userTeamIdx = new Map<string, number>()
+  teams.forEach((team, tIdx) => {
+    team.forEach((party) => {
+      party.forEach((c) => {
+        if (!userTeamIdx.has(c.userNickname)) userTeamIdx.set(c.userNickname, tIdx)
+      })
+    })
+  })
+
+  // 벤치 캐릭터를 자기 팀의 빈 슬롯에만 재배치
   const finalBench: PartySlotCharacter[] = []
   for (const benchChar of bench) {
+    const tIdx = userTeamIdx.get(benchChar.userNickname)
+    if (tIdx === undefined) { finalBench.push(benchChar); continue }
+
     let placed = false
-    for (const team of teams) {
-      for (const party of team) {
-        if (
-          party.length < partySize &&
-          !party.some((m) => m.userNickname === benchChar.userNickname)
-        ) {
-          party.push(benchChar)
-          placed = true
-          break
-        }
+    for (const party of teams[tIdx]) {
+      if (
+        party.length < partySize &&
+        !party.some((m) => m.userNickname === benchChar.userNickname)
+      ) {
+        party.push(benchChar)
+        placed = true
+        break
       }
-      if (placed) break
     }
     if (!placed) finalBench.push(benchChar)
   }

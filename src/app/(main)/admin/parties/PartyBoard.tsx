@@ -14,6 +14,8 @@ type Props = {
   partySize: number
   teamColor: 'red' | 'blue' | 'green' | 'gray'
   allParties: { partyNumber: number; label: string; characters: PartySlotCharacter[] }[]
+  hoveredNickname: string | null
+  onHoverNickname: (n: string | null) => void
   onMoveOut: (char: PartySlotCharacter) => void
   onSwap: (char: PartySlotCharacter, toPartyNumber: number) => void
   onDuplicateTo: (char: PartySlotCharacter, toPartyNumber: number) => void
@@ -41,8 +43,11 @@ type CharRowProps = {
   partyNumber: number
   isSelected: boolean
   isDuplicateUser: boolean
+  isHovered: boolean
   allParties: Props['allParties']
   onRowClick: (char: PartySlotCharacter) => void
+  onMouseEnter: () => void
+  onMouseLeave: () => void
   onMoveOut: () => void
   onSwap: (toPartyNumber: number) => void
   onDuplicateTo: (toPartyNumber: number) => void
@@ -55,8 +60,11 @@ function DraggableCharRow({
   partyNumber,
   isSelected,
   isDuplicateUser,
+  isHovered,
   allParties,
   onRowClick,
+  onMouseEnter,
+  onMouseLeave,
   onMoveOut,
   onSwap,
   onDuplicateTo,
@@ -73,8 +81,16 @@ function DraggableCharRow({
     <div ref={setNodeRef} style={style} className={isDragging ? 'opacity-30' : ''}>
       <div
         onClick={() => onRowClick(char)}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
         className={`flex items-center gap-2 px-3 py-2 cursor-pointer ${
-          isSelected ? 'bg-yellow-50' : isDuplicateUser ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'
+          isSelected
+            ? 'bg-yellow-50'
+            : isDuplicateUser
+            ? 'bg-red-50 hover:bg-red-100'
+            : isHovered
+            ? 'bg-sky-50'
+            : 'hover:bg-gray-50'
         }`}
       >
         <span
@@ -152,6 +168,8 @@ export default function PartyBoard({
   partySize,
   teamColor,
   allParties,
+  hoveredNickname,
+  onHoverNickname,
   onMoveOut,
   onSwap,
   onDuplicateTo,
@@ -212,8 +230,11 @@ export default function PartyBoard({
             partyNumber={partyNumber}
             isSelected={selectedId === char.slotId}
             isDuplicateUser={duplicateUsers.has(char.userNickname)}
+            isHovered={hoveredNickname === char.userNickname}
             allParties={allParties}
             onRowClick={(c) => setSelectedId((prev) => (prev === c.slotId ? null : c.slotId))}
+            onMouseEnter={() => onHoverNickname(char.userNickname)}
+            onMouseLeave={() => onHoverNickname(null)}
             onMoveOut={() => { onMoveOut(char); setSelectedId(null) }}
             onSwap={(pn) => { onSwap(char, pn); setSelectedId(null) }}
             onDuplicateTo={(pn) => { onDuplicateTo(char, pn); setSelectedId(null) }}

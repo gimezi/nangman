@@ -155,6 +155,7 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
   const [bench, setBench] = useState<PartySlotCharacter[]>([])
   const [initialized, setInitialized] = useState(false)
   const [activeDragData, setActiveDragData] = useState<{ char: PartySlotCharacter; from: PartyMoveTarget } | null>(null)
+  const [hoveredNickname, setHoveredNickname] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -534,6 +535,8 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
                           label: p.label,
                           characters: p.characters,
                         }))}
+                        hoveredNickname={hoveredNickname}
+                        onHoverNickname={setHoveredNickname}
                         onMoveOut={(char) => moveCharacter(char, { teamIdx, subIdx }, 'bench')}
                         onSwap={(char, toPartyNumber) => {
                           const { teamIdx: toTeamIdx, subIdx: toSubIdx } = decodePartyNumber(toPartyNumber)

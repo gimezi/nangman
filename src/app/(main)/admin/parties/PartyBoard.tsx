@@ -77,6 +77,11 @@ function DraggableCharRow({
   const cls = CLASSES.find((c) => c.name === char.class)
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
 
+  const userTotalChars = allParties.reduce(
+    (sum, p) => sum + p.characters.filter((c) => c.userNickname === char.userNickname && !c.isDuplicate).length,
+    0
+  )
+
   return (
     <div
       ref={setNodeRef}
@@ -105,7 +110,12 @@ function DraggableCharRow({
           ⠿
         </span>
 
-        <span className="flex-1 truncate text-gray-800 font-medium">{char.userNickname}</span>
+        <span className="flex-1 truncate text-gray-800 font-medium">
+          {char.userNickname}
+          {userTotalChars > 1 && (
+            <span className="ml-1 text-[11px] font-normal text-gray-400">({userTotalChars})</span>
+          )}
+        </span>
         <span className={`text-xs font-medium shrink-0 ${cls ? TYPE_COLOR[cls.type] : 'text-gray-500'}`}>
           {cls?.label ?? char.class}
         </span>

@@ -78,18 +78,22 @@ function DraggableCharRow({
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
 
   return (
-    <div ref={setNodeRef} style={style} className={isDragging ? 'opacity-30' : ''}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={isDragging ? 'opacity-30' : ''}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
       <div
         onClick={() => onRowClick(char)}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-        className={`flex items-center gap-2 px-3 py-2 cursor-pointer ${
+        className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
           isSelected
             ? 'bg-yellow-50'
             : isDuplicateUser
             ? 'bg-red-50 hover:bg-red-100'
             : isHovered
-            ? 'bg-sky-50'
+            ? 'bg-blue-100'
             : 'hover:bg-gray-50'
         }`}
       >

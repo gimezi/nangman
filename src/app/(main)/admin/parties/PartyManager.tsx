@@ -16,7 +16,8 @@ import {
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { RaidWithSchedules, DAY_LABEL } from '@/types/raid'
-import { useApplicants, useSavedParties, useSaveParties, useTeamPreferences, usePositionPreferences } from '@/hooks/useAdminParties'
+import { useApplicants, useSavedParties, useSaveParties, useTeamPreferences, usePositionPreferences, useAllUsers } from '@/hooks/useAdminParties'
+import AllCharactersSidebar from './AllCharactersSidebar'
 import {
   autoAssignTeams,
   PartyCharacter,
@@ -44,8 +45,12 @@ type PartyMoveTarget =
       subIdx: number
     }
 
+type ActiveDragData =
+  | { char: PartySlotCharacter; from: 'bench' | { teamIdx: number; subIdx: number } }
+  | { char: PartyCharacter; from: 'sidebar' }
+
 // 드래그 중 오버레이에 표시할 캐릭터 카드
-function DragCharOverlay({ char }: { char: PartySlotCharacter }) {
+function DragCharOverlay({ char }: { char: PartyCharacter }) {
   const cls = CLASSES.find((c) => c.name === char.class)
   return (
     <div className="bg-white shadow-xl rounded-lg border border-indigo-300 px-3 py-2 text-sm flex items-center gap-2 w-72 cursor-grabbing">
@@ -154,7 +159,7 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
   const [teams, setTeams] = useState<PartySlotCharacter[][][]>([])
   const [bench, setBench] = useState<PartySlotCharacter[]>([])
   const [initialized, setInitialized] = useState(false)
-  const [activeDragData, setActiveDragData] = useState<{ char: PartySlotCharacter; from: PartyMoveTarget } | null>(null)
+  const [activeDragData, setActiveDragData] = useState<ActiveDragData | null>(null)
   const [hoveredNickname, setHoveredNickname] = useState<string | null>(null)
 
   const sensors = useSensors(
@@ -163,6 +168,8 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
   )
 
   const selectedSchedule = raids.flatMap((r) => r.raid_schedules).find((s) => s.id === selectedScheduleId)
+
+  const { data: allUsersData = [] } = useAllUsers()
 
   const { data: applicantData, isLoading: loadingApplicants } = useApplicants(selectedScheduleId, selectedWeekDate || undefined)
   const applicants = applicantData?.characters ?? []
@@ -240,7 +247,7 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
   }, [savedParties, applicants, initialized])
 
   function handleDragStart(event: DragStartEvent) {
-    const data = event.active.data.current as { char: PartySlotCharacter; from: PartyMoveTarget } | undefined
+    const data = event.active.data.current as ActiveDragData | undefined
     if (data) setActiveDragData(data)
   }
 
@@ -249,12 +256,36 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
     const { active, over } = event
     if (!over) return
 
-    const data = active.data.current as { char: PartySlotCharacter; from: PartyMoveTarget } | undefined
+    const data = active.data.current as ActiveDragData | undefined
     if (!data) return
 
-    const { char, from } = data
     const overId = String(over.id)
 
+    if (data.from === 'sidebar') {
+      const newChar: PartySlotCharacter = {
+        ...data.char,
+        slotId: `${data.char.id}:${crypto.randomUUID()}`,
+        sourceCharacterId: data.char.id,
+        isDuplicate: false,
+      }
+      if (overId === 'bench') {
+        setBench((prev) => [...prev, newChar])
+      } else {
+        const partyNum = Number(overId)
+        if (isNaN(partyNum)) return
+        const { teamIdx, subIdx } = decodePartyNumber(partyNum)
+        setTeams((prev) => {
+          const next = prev.map((team) => team.map((party) => [...party]))
+          if (!next[teamIdx]) next[teamIdx] = []
+          if (!next[teamIdx][subIdx]) next[teamIdx][subIdx] = []
+          next[teamIdx][subIdx] = [...next[teamIdx][subIdx], newChar]
+          return next
+        })
+      }
+      return
+    }
+
+    const { char, from } = data
     let to: PartyMoveTarget
     if (overId === 'bench') {
       to = 'bench'
@@ -400,204 +431,212 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
   }
 
   const hasTeams = numTeams != null && teams.some((team) => team.length > 0)
+  const applicantIds = new Set(applicants.map((a) => a.id))
 
   return (
-    <div>
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-        <div className="flex flex-wrap gap-3 items-end">
-          <div className="flex-1 min-w-40">
-            <label className="block text-xs font-medium text-gray-500 mb-1">레이드 선택</label>
-            <select
-              value={selectedScheduleId}
-              onChange={(e) => setSelectedScheduleId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">선택하세요</option>
-              {allSchedules.map((s: any) => (
-                <option key={s.id} value={s.id}>
-                  {s.raidName} — {DAY_LABEL[s.day_of_week]}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {selectedScheduleId && availableWeekDates.length > 0 && (
-            <div className="flex-1 min-w-36">
-              <label className="block text-xs font-medium text-gray-500 mb-1">주차</label>
-              <select
-                value={weekDate}
-                onChange={(e) => {
-                  setSelectedWeekDate(e.target.value)
-                  setTeams([])
-                  setBench([])
-                  setInitialized(false)
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {availableWeekDates.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {selectedScheduleId && (
-            <>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">팀 수</label>
-                <div className="flex gap-1">
-                  {[1, 2].map((count) => (
-                    <button
-                      key={count}
-                      onClick={() => handleNumTeamsChange(count)}
-                      className={`w-10 h-9 rounded-lg text-sm font-medium border transition-colors ${
-                        numTeams === count
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      {count}
-                    </button>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveDragData(null)}
+    >
+      <div className="flex gap-4 items-start">
+        {/* 메인 파티 관리 영역 */}
+        <div className="flex-1 min-w-0">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+            <div className="flex flex-wrap gap-3 items-end">
+              <div className="flex-1 min-w-40">
+                <label className="block text-xs font-medium text-gray-500 mb-1">레이드 선택</label>
+                <select
+                  value={selectedScheduleId}
+                  onChange={(e) => setSelectedScheduleId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">선택하세요</option>
+                  {allSchedules.map((s: any) => (
+                    <option key={s.id} value={s.id}>
+                      {s.raidName} — {DAY_LABEL[s.day_of_week]}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
 
-              <button
-                onClick={handleAutoAssign}
-                disabled={loadingApplicants || !applicants.length}
-                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors"
-              >
-                자동 배치
-              </button>
-            </>
-          )}
-        </div>
+              {selectedScheduleId && availableWeekDates.length > 0 && (
+                <div className="flex-1 min-w-36">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">주차</label>
+                  <select
+                    value={weekDate}
+                    onChange={(e) => {
+                      setSelectedWeekDate(e.target.value)
+                      setTeams([])
+                      setBench([])
+                      setInitialized(false)
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {availableWeekDates.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-        {selectedScheduleId && (
-          <p className="text-xs text-gray-400 mt-2">
-            {loadingApplicants || loadingSaved
-              ? '불러오는 중...'
-              : weekDate
-                ? `신청 ${applicants.length}명`
-                : '신청 데이터 없음'}
-          </p>
-        )}
-      </div>
-
-
-      {hasTeams && (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onDragCancel={() => setActiveDragData(null)}
-        >
-          <div
-            className={`grid gap-4 mb-4 ${
-              numTeams === 1 ? 'grid-cols-1' : numTeams === 2 ? 'grid-cols-2' : 'grid-cols-3'
-            }`}
-          >
-            {teams.map((team, teamIdx) => {
-              const teamAvg = avgCp(team.flat())
-              const teamName = TEAM_NAMES[teamIdx] ?? `팀${teamIdx + 1}`
-              const teamColorClass =
-                teamIdx === 0 ? 'text-red-600' : teamIdx === 1 ? 'text-blue-600' : 'text-emerald-600'
-              const teamColor = teamIdx === 0 ? 'red' : teamIdx === 1 ? 'blue' : 'green'
-
-              return (
-                <div key={teamIdx}>
-                  <div className="flex items-center justify-between gap-2 mb-2 px-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`font-bold ${teamColorClass}`}>{teamName}</span>
-                      <span className="text-xs text-gray-400">평균 {formatCp(teamAvg)}</span>
+              {selectedScheduleId && (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">팀 수</label>
+                    <div className="flex gap-1">
+                      {[1, 2].map((count) => (
+                        <button
+                          key={count}
+                          onClick={() => handleNumTeamsChange(count)}
+                          className={`w-10 h-9 rounded-lg text-sm font-medium border transition-colors ${
+                            numTeams === count
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {count}
+                        </button>
+                      ))}
                     </div>
-
-                    <button
-                      onClick={() => addParty(teamIdx)}
-                      className="text-xs px-2 py-1 rounded border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600"
-                    >
-                      + 파티 추가
-                    </button>
                   </div>
 
-                  <div className="flex flex-col gap-3">
-                    {team.map((party, subIdx) => (
-                      <PartyBoard
-                        key={`${teamIdx}-${subIdx}`}
-                        partyLabel={`${teamName} ${subIdx + 1}파티`}
-                        partyNumber={encodePartyNumber(teamIdx, subIdx)}
-                        characters={party}
-                        partySize={selectedSchedule?.party_size ?? 4}
-                        teamColor={teamColor}
-                        allParties={allPartyLabels().map((p) => ({
-                          partyNumber: encodePartyNumber(p.teamIdx, p.subIdx),
-                          label: p.label,
-                          characters: p.characters,
-                        }))}
-                        hoveredNickname={hoveredNickname}
-                        onHoverNickname={setHoveredNickname}
-                        onMoveOut={(char) => moveCharacter(char, { teamIdx, subIdx }, 'bench')}
-                        onSwap={(char, toPartyNumber) => {
-                          const { teamIdx: toTeamIdx, subIdx: toSubIdx } = decodePartyNumber(toPartyNumber)
-                          moveCharacter(char, { teamIdx, subIdx }, { teamIdx: toTeamIdx, subIdx: toSubIdx })
-                        }}
-                        onDuplicateTo={(char, toPartyNumber) => {
-                          const { teamIdx: toTeamIdx, subIdx: toSubIdx } = decodePartyNumber(toPartyNumber)
-                          duplicateCharacterToParty(char, { teamIdx: toTeamIdx, subIdx: toSubIdx })
-                        }}
-                        onDelete={() => removeParty(teamIdx, subIdx)}
+                  <button
+                    onClick={handleAutoAssign}
+                    disabled={loadingApplicants || !applicants.length}
+                    className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors"
+                  >
+                    자동 배치
+                  </button>
+                </>
+              )}
+            </div>
+
+            {selectedScheduleId && (
+              <p className="text-xs text-gray-400 mt-2">
+                {loadingApplicants || loadingSaved
+                  ? '불러오는 중...'
+                  : weekDate
+                    ? `신청 ${applicants.length}명`
+                    : '신청 데이터 없음'}
+              </p>
+            )}
+          </div>
+
+          {hasTeams && (
+            <>
+              <div
+                className={`grid gap-4 mb-4 ${
+                  numTeams === 1 ? 'grid-cols-1' : numTeams === 2 ? 'grid-cols-2' : 'grid-cols-3'
+                }`}
+              >
+                {teams.map((team, teamIdx) => {
+                  const teamAvg = avgCp(team.flat())
+                  const teamName = TEAM_NAMES[teamIdx] ?? `팀${teamIdx + 1}`
+                  const teamColorClass =
+                    teamIdx === 0 ? 'text-red-600' : teamIdx === 1 ? 'text-blue-600' : 'text-emerald-600'
+                  const teamColor = teamIdx === 0 ? 'red' : teamIdx === 1 ? 'blue' : 'green'
+
+                  return (
+                    <div key={teamIdx}>
+                      <div className="flex items-center justify-between gap-2 mb-2 px-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-bold ${teamColorClass}`}>{teamName}</span>
+                          <span className="text-xs text-gray-400">평균 {formatCp(teamAvg)}</span>
+                        </div>
+
+                        <button
+                          onClick={() => addParty(teamIdx)}
+                          className="text-xs px-2 py-1 rounded border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600"
+                        >
+                          + 파티 추가
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col gap-3">
+                        {team.map((party, subIdx) => (
+                          <PartyBoard
+                            key={`${teamIdx}-${subIdx}`}
+                            partyLabel={`${teamName} ${subIdx + 1}파티`}
+                            partyNumber={encodePartyNumber(teamIdx, subIdx)}
+                            characters={party}
+                            partySize={selectedSchedule?.party_size ?? 4}
+                            teamColor={teamColor}
+                            allParties={allPartyLabels().map((p) => ({
+                              partyNumber: encodePartyNumber(p.teamIdx, p.subIdx),
+                              label: p.label,
+                              characters: p.characters,
+                            }))}
+                            hoveredNickname={hoveredNickname}
+                            onHoverNickname={setHoveredNickname}
+                            onMoveOut={(char) => moveCharacter(char, { teamIdx, subIdx }, 'bench')}
+                            onSwap={(char, toPartyNumber) => {
+                              const { teamIdx: toTeamIdx, subIdx: toSubIdx } = decodePartyNumber(toPartyNumber)
+                              moveCharacter(char, { teamIdx, subIdx }, { teamIdx: toTeamIdx, subIdx: toSubIdx })
+                            }}
+                            onDuplicateTo={(char, toPartyNumber) => {
+                              const { teamIdx: toTeamIdx, subIdx: toSubIdx } = decodePartyNumber(toPartyNumber)
+                              duplicateCharacterToParty(char, { teamIdx: toTeamIdx, subIdx: toSubIdx })
+                            }}
+                            onDelete={() => removeParty(teamIdx, subIdx)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <DroppableBench count={bench.length}>
+                {bench.length === 0 ? (
+                  <p className="text-xs text-gray-300 text-center py-2">캐릭터를 여기로 드래그하세요</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {bench.map((char) => (
+                      <DraggableBenchItem
+                        key={char.slotId}
+                        char={char}
+                        allPartyLabels={allPartyLabels()}
+                        onMoveTo={(tIdx, sIdx) => moveCharacter(char, 'bench', { teamIdx: tIdx, subIdx: sIdx })}
                       />
                     ))}
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )}
+              </DroppableBench>
 
-          <DroppableBench count={bench.length}>
-            {bench.length === 0 ? (
-              <p className="text-xs text-gray-300 text-center py-2">캐릭터를 여기로 드래그하세요</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {bench.map((char) => (
-                  <DraggableBenchItem
-                    key={char.slotId}
-                    char={char}
-                    allPartyLabels={allPartyLabels()}
-                    onMoveTo={(tIdx, sIdx) => moveCharacter(char, 'bench', { teamIdx: tIdx, subIdx: sIdx })}
-                  />
-                ))}
-              </div>
-            )}
-          </DroppableBench>
+              <button
+                onClick={handleSave}
+                disabled={saveParties.isPending || !weekDate}
+                className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
+              >
+                {saveParties.isPending ? '저장 중...' : '파티 구성 저장'}
+              </button>
 
-          <DragOverlay dropAnimation={null}>
-            {activeDragData && <DragCharOverlay char={activeDragData.char} />}
-          </DragOverlay>
+              {saveParties.isSuccess && <p className="text-green-600 text-sm text-center mt-2">저장됐어요!</p>}
+            </>
+          )}
 
-          <button
-            onClick={handleSave}
-            disabled={saveParties.isPending || !weekDate}
-            className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
-          >
-            {saveParties.isPending ? '저장 중...' : '파티 구성 저장'}
-          </button>
-
-          {saveParties.isSuccess && <p className="text-green-600 text-sm text-center mt-2">저장됐어요!</p>}
-        </DndContext>
-      )}
-
-      {selectedScheduleId && numTeams == null && !loadingApplicants && !loadingSaved && (
-        <div className="text-center py-16 text-gray-400">
-          팀 수를 먼저 선택해주세요
+          {selectedScheduleId && numTeams == null && !loadingApplicants && !loadingSaved && (
+            <div className="text-center py-16 text-gray-400">
+              팀 수를 먼저 선택해주세요
+            </div>
+          )}
+          {selectedScheduleId && !hasTeams && numTeams && !loadingApplicants && !loadingSaved && (
+            <div className="text-center py-16 text-gray-400">
+              {applicants.length > 0 ? '자동 배치 버튼을 눌러 파티를 구성해보세요' : '신청 인원이 없어요'}
+            </div>
+          )}
         </div>
-      )}
-      {selectedScheduleId && !hasTeams && numTeams && !loadingApplicants && !loadingSaved && (
-        <div className="text-center py-16 text-gray-400">
-          {applicants.length > 0 ? '자동 배치 버튼을 눌러 파티를 구성해보세요' : '신청 인원이 없어요'}
-        </div>
-      )}
-    </div>
+
+        {/* 전체 캐릭터 사이드바 */}
+        <AllCharactersSidebar users={allUsersData} applicantIds={applicantIds} />
+      </div>
+
+      <DragOverlay dropAnimation={null}>
+        {activeDragData && <DragCharOverlay char={activeDragData.char} />}
+      </DragOverlay>
+    </DndContext>
   )
 }

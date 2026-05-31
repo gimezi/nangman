@@ -1,6 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PartyCharacter } from '@/lib/partyAlgorithm'
 
+export type UserWithCharacters = {
+  id: string
+  nickname: string
+  characters: Array<{
+    id: string
+    nickname: string
+    class: string
+    combat_power: number
+  }>
+}
+
 export type SavedParty = {
   id: string
   party_number: number
@@ -92,6 +103,19 @@ export function useTeamPreferences(scheduleId: string) {
     queryKey: ['teamPreferences', scheduleId],
     queryFn: () => fetchTeamPreferences(scheduleId),
     enabled: !!scheduleId,
+  })
+}
+
+async function fetchAllUsers(): Promise<UserWithCharacters[]> {
+  const res = await fetch('/api/admin/users')
+  if (!res.ok) throw new Error('유저 목록 조회 실패')
+  return res.json()
+}
+
+export function useAllUsers() {
+  return useQuery({
+    queryKey: ['adminUsers'],
+    queryFn: fetchAllUsers,
   })
 }
 

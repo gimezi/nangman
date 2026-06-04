@@ -29,6 +29,7 @@ export default function ScheduleModal({ mode, raidId, schedule, onClose }: Props
     deadline_day: schedule?.deadline_day ?? 'mon',
     deadline_time: schedule?.deadline_time?.slice(0, 5) ?? '18:00',
     is_active: schedule?.is_active ?? true,
+    sheet_url: schedule?.sheet_url ?? '',
   })
 
   function set(key: string, value: string | boolean) {
@@ -46,6 +47,7 @@ export default function ScheduleModal({ mode, raidId, schedule, onClose }: Props
       deadline_day: form.deadline_day,
       deadline_time: form.deadline_time + ':00',
       is_active: form.is_active,
+      sheet_url: form.sheet_url.trim() || null,
     }
     if (mode === 'add') {
       createSchedule.mutate({ raidId, ...payload }, { onSuccess: onClose })
@@ -113,6 +115,13 @@ export default function ScheduleModal({ mode, raidId, schedule, onClose }: Props
               <input type="time" value={form.deadline_time} onChange={(e) => set('deadline_time', e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">구글 시트 URL</label>
+            <input type="url" value={form.sheet_url} onChange={(e) => set('sheet_url', e.target.value)}
+              placeholder="https://docs.google.com/spreadsheets/d/..."
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer">

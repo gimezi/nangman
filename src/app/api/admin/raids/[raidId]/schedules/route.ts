@@ -11,7 +11,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   const { raidId } = await params
   const body = await request.json()
 
-  const { day_of_week, required_cp, recommended_cp, overwhelming_cp, party_size, deadline_day, deadline_time } = body
+  const { day_of_week, required_cp, recommended_cp, overwhelming_cp, party_size, deadline_day, deadline_time, sheet_url } = body
 
   if (!day_of_week || !party_size) {
     return NextResponse.json({ error: '필수 항목을 입력해주세요.' }, { status: 400 })
@@ -29,6 +29,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       deadline_day: deadline_day || day_of_week,
       deadline_time: deadline_time || '18:00:00',
       is_active: true,
+      sheet_url: sheet_url || null,
     })
     .select()
     .single()

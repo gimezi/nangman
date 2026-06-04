@@ -12,7 +12,7 @@ export async function GET() {
       id, name, image_url, created_at,
       raid_schedules (
         id, day_of_week, required_cp, recommended_cp, overwhelming_cp,
-        party_size, deadline_day, deadline_time, is_active
+        party_size, deadline_day, deadline_time, is_active, sheet_url
       )
     `)
     .order('created_at')

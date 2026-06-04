@@ -1,11 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminGuard'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { parseRaw, type MissingEntry } from '@/app/api/admin/schedules/[scheduleId]/applications/route'
 
-const SHEET_ID = process.env.GOOGLE_SHEET_ID!
-const SHEET_GID = process.env.GOOGLE_SHEET_GID!
-
+function parseSheetUrl(url: string): { sheetId: string; gid: string } | null {
+  const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
+  if (!idMatch) return null
+  const gidMatch = url.match(/[#?&]gid=(\d+)/)
+  return { sheetId: idMatch[1], gid: gidMatch?.[1] ?? '0' }
+}
 
 function parseKoreanTimestamp(ts: string): Date | null {
   const m = ts.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\s*(오전|오후)\s*(\d{1,2}):(\d{2}):(\d{2})/)
@@ -38,18 +41,32 @@ export type SyncDateResult = {
   missing?: MissingEntry[]
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const guard = await requireAdmin()
   if (guard.error) return guard.error
 
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
-  const res = await fetch(url, { redirect: 'follow' })
+  const { scheduleId } = await request.json()
+  if (!scheduleId) return NextResponse.json({ error: 'scheduleId가 필요합니다' }, { status: 400 })
+
+  const { data: schedule, error: schedErr } = await supabase
+    .from('raid_schedules')
+    .select('id, day_of_week, sheet_url')
+    .eq('id', scheduleId)
+    .single()
+
+  if (schedErr || !schedule) return NextResponse.json({ error: '스케줄을 찾을 수 없습니다' }, { status: 404 })
+  if (!schedule.sheet_url) return NextResponse.json({ error: '시트 URL이 설정되지 않았습니다' }, { status: 400 })
+
+  const parsed = parseSheetUrl(schedule.sheet_url)
+  if (!parsed) return NextResponse.json({ error: '올바른 구글 시트 URL이 아닙니다' }, { status: 400 })
+
+  const csvUrl = `https://docs.google.com/spreadsheets/d/${parsed.sheetId}/export?format=csv&gid=${parsed.gid}`
+  const res = await fetch(csvUrl, { redirect: 'follow' })
   if (!res.ok) return NextResponse.json({ error: '시트를 불러오지 못했습니다' }, { status: 500 })
 
   const csv = await res.text()
   const rows = csv.trim().split('\n').slice(1)
 
-  // group character lines by date from timestamp
   const byDate = new Map<string, string[]>()
   for (const row of rows) {
     const commaIdx = row.indexOf(',')
@@ -68,26 +85,9 @@ export async function POST() {
     return NextResponse.json({ results: [] })
   }
 
-  const { data: schedules } = await supabase
-    .from('raid_schedules')
-    .select('id, day_of_week')
-    .eq('is_active', true)
-
-  const scheduleByDow = new Map<string, string>()
-  for (const s of schedules ?? []) {
-    scheduleByDow.set(s.day_of_week, s.id)
-  }
-
   const results: SyncDateResult[] = []
 
   for (const [dateStr, charLines] of byDate) {
-    const scheduleId = scheduleByDow.get('mon')
-
-    if (!scheduleId) {
-      results.push({ date: dateStr, status: 'no_schedule' })
-      continue
-    }
-
     const entries = parseRaw(charLines.join('\n'))
 
     const nicknames = [...new Set(entries.map((e) => e.userNickname))]

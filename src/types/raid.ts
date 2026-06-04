@@ -8,6 +8,7 @@ export type RaidSchedule = {
   deadline_day: string
   deadline_time: string
   is_active: boolean
+  sheet_url: string | null
 }
 
 export type RaidWithSchedules = {

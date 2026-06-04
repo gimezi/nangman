@@ -193,6 +193,7 @@ function balanceTanks(subParties: PartySlotCharacter[][]) {
   }
 }
 
+// v1: 딜러끼리만 스왑
 function balanceAverageCp(subParties: PartySlotCharacter[][]) {
   if (subParties.length < 2) return
 
@@ -232,13 +233,70 @@ function balanceAverageCp(subParties: PartySlotCharacter[][]) {
   }
 }
 
+// v2: 모든 직업 대상, 차이를 가장 줄이는 스왑 선택
+function balanceAverageCpFull(subParties: PartySlotCharacter[][]) {
+  if (subParties.length < 2) return
+
+  let changed = true
+  let loop = 0
+
+  while (changed && loop < 30) {
+    loop++
+    changed = false
+
+    const avgs = subParties.map(avgCp)
+    const maxAvg = Math.max(...avgs)
+    const minAvg = Math.min(...avgs)
+
+    if (maxAvg - minAvg < 3000) break
+
+    const highIdx = avgs.indexOf(maxAvg)
+    const lowIdx = avgs.indexOf(minAvg)
+
+    const highParty = subParties[highIdx]
+    const lowParty = subParties[lowIdx]
+
+    let bestSwap: [PartySlotCharacter, PartySlotCharacter] | null = null
+    let bestNewDiff = maxAvg - minAvg
+
+    for (const highChar of highParty) {
+      for (const lowChar of lowParty) {
+        if (wouldCreateUserConflict(highParty, highChar, lowParty, lowChar)) continue
+        const newHighAvg = avgCp([...highParty.filter((c) => c.slotId !== highChar.slotId), lowChar])
+        const newLowAvg = avgCp([...lowParty.filter((c) => c.slotId !== lowChar.slotId), highChar])
+        const newDiff = Math.abs(newHighAvg - newLowAvg)
+        if (newDiff < bestNewDiff) {
+          bestNewDiff = newDiff
+          bestSwap = [highChar, lowChar]
+        }
+      }
+    }
+
+    if (bestSwap) {
+      swapCharacters(highParty, bestSwap[0], lowParty, bestSwap[1])
+      changed = true
+    }
+  }
+}
+
+// v1: 탱커/서포터 균등 → CP 보정(딜러)
 function applyClassBalance(subParties: PartySlotCharacter[][], positions: Record<string, number> = {}) {
-  // 탱커/서포터 균등 분배 우선, 2패스로 안정화
   balanceTanks(subParties)
   ensureSupport(subParties)
   balanceTanks(subParties)
   ensureSupport(subParties)
   balanceAverageCp(subParties)
+  const hasPositions = Object.keys(positions).length > 0
+  subParties.forEach((party) =>
+    hasPositions ? sortByPosition(party, positions) : sortByCpDesc(party)
+  )
+}
+
+// v2: 평균 CP 균등화 먼저(모든 직업) → 불균형 직업만 보정
+function applyClassBalanceV2(subParties: PartySlotCharacter[][], positions: Record<string, number> = {}) {
+  balanceAverageCpFull(subParties)
+  balanceTanks(subParties)
+  ensureSupport(subParties)
   const hasPositions = Object.keys(positions).length > 0
   subParties.forEach((party) =>
     hasPositions ? sortByPosition(party, positions) : sortByCpDesc(party)
@@ -357,6 +415,112 @@ export function autoAssignTeams(
   })
 
   // 벤치 캐릭터를 자기 팀 빈 슬롯에 재배치
+  const finalBench: PartySlotCharacter[] = []
+  for (const benchChar of bench) {
+    const tIdx = userTeamIdx.get(benchChar.userNickname)
+    if (tIdx === undefined) { finalBench.push(benchChar); continue }
+    let placed = false
+    for (const party of teams[tIdx]) {
+      if (party.length < partySize && !party.some((m) => m.userNickname === benchChar.userNickname)) {
+        party.push(benchChar)
+        placed = true
+        break
+      }
+    }
+    if (!placed) finalBench.push(benchChar)
+  }
+  bench.splice(0, bench.length, ...finalBench)
+
+  return { teams, bench }
+}
+
+function buildTeamPartiesV2(
+  teamUserList: [string, PartyCharacter[]][],
+  partySize: number,
+  positions: Record<string, number> = {},
+  bench: PartySlotCharacter[] = []
+): PartySlotCharacter[][] {
+  const sortedUsers = [...teamUserList]
+    .map(([userNickname, chars]) => [
+      userNickname,
+      [...chars].sort((a, b) => b.combat_power - a.combat_power),
+    ] as [string, PartyCharacter[]])
+    .sort((a, b) => {
+      if (b[1].length !== a[1].length) return b[1].length - a[1].length
+      return (b[1][0]?.combat_power ?? 0) - (a[1][0]?.combat_power ?? 0)
+    })
+
+  const parties: PartySlotCharacter[][] = []
+
+  for (const [, chars] of sortedUsers) {
+    const charCount = chars.length
+    const startIdx = findConsecutiveStart(parties, charCount, partySize)
+    while (parties.length < startIdx + charCount) parties.push([])
+    for (let i = 0; i < charCount; i++) {
+      parties[startIdx + i].push(makeSlot(chars[i], false))
+    }
+  }
+
+  if (!parties.length) return []
+  applyClassBalanceV2(parties, positions)
+  return parties
+}
+
+/**
+ * 자동배치 v2:
+ * - 팀 분배 방식은 동일
+ * - 파티 내 평균 전투력 균등화 우선 (모든 직업 대상 스왑)
+ * - 이후 불균형한 직업만 보정 (diff >= 2)
+ */
+export function autoAssignTeamsV2(
+  characters: PartyCharacter[],
+  numTeams: number,
+  partySize: number,
+  teamPreferences: Record<string, number> = {},
+  characterPositions: Record<string, number> = {}
+): { teams: PartySlotCharacter[][][]; bench: PartySlotCharacter[] } {
+  const userMap = new Map<string, PartyCharacter[]>()
+
+  for (const char of characters) {
+    if (!userMap.has(char.userNickname)) userMap.set(char.userNickname, [])
+    userMap.get(char.userNickname)!.push(char)
+  }
+
+  userMap.forEach((chars) => chars.sort((a, b) => b.combat_power - a.combat_power))
+
+  const sortDesc = (a: [string, PartyCharacter[]], b: [string, PartyCharacter[]]) => {
+    if (b[1].length !== a[1].length) return b[1].length - a[1].length
+    return (b[1][0]?.combat_power ?? 0) - (a[1][0]?.combat_power ?? 0)
+  }
+
+  const users = [...userMap.entries()].sort(sortDesc)
+  const teamUsers: [string, PartyCharacter[]][][] = Array.from({ length: numTeams }, () => [])
+
+  for (let i = 0; i < users.length; i++) {
+    const teamIdx = Math.min(Math.floor(i / partySize), numTeams - 1)
+    teamUsers[teamIdx].push(users[i])
+  }
+
+  const bench: PartySlotCharacter[] = []
+  const teams: PartySlotCharacter[][][] = []
+
+  for (const teamUserList of teamUsers) {
+    teams.push(
+      teamUserList.length
+        ? buildTeamPartiesV2(teamUserList, partySize, characterPositions, bench)
+        : []
+    )
+  }
+
+  const userTeamIdx = new Map<string, number>()
+  teams.forEach((team, tIdx) => {
+    team.forEach((party) => {
+      party.forEach((c) => {
+        if (!userTeamIdx.has(c.userNickname)) userTeamIdx.set(c.userNickname, tIdx)
+      })
+    })
+  })
+
   const finalBench: PartySlotCharacter[] = []
   for (const benchChar of bench) {
     const tIdx = userTeamIdx.get(benchChar.userNickname)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -20,6 +20,7 @@ import { useApplicants, useSavedParties, useSaveParties, useTeamPreferences, use
 import AllCharactersSidebar from './AllCharactersSidebar'
 import {
   autoAssignTeams,
+  autoAssignTeamsV2,
   PartyCharacter,
   PartySlotCharacter,
   avgCp,
@@ -71,10 +72,12 @@ function DraggableBenchItem({
   char,
   allPartyLabels,
   onMoveTo,
+  isMain,
 }: {
   char: PartySlotCharacter
   allPartyLabels: { teamIdx: number; subIdx: number; label: string }[]
   onMoveTo: (teamIdx: number, subIdx: number) => void
+  isMain?: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: char.slotId,
@@ -104,6 +107,11 @@ function DraggableBenchItem({
         }`}>
           {cls?.label ?? char.class}
         </span>
+        {isMain && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-semibold shrink-0">
+            본캐
+          </span>
+        )}
         {char.isVolunteer && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold shrink-0">
             지원
@@ -299,11 +307,10 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
     moveCharacter(char, from, to)
   }
 
-  function handleAutoAssign() {
+  function handleAutoAssign(version: 1 | 2 = 1) {
     if (!selectedSchedule || !numTeams) return
-
-    // 자동배치는 과거 팀 선호도 무시하고 새로 계산
-    const result = autoAssignTeams(applicants, numTeams, selectedSchedule.party_size, {}, {})
+    const fn = version === 2 ? autoAssignTeamsV2 : autoAssignTeams
+    const result = fn(applicants, numTeams, selectedSchedule.party_size, {}, {})
     setTeams(result.teams)
     setBench(result.bench)
     setInitialized(true)
@@ -433,6 +440,26 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
   const hasTeams = numTeams != null && teams.some((team) => team.length > 0)
   const applicantIds = new Set(applicants.map((a) => a.id))
 
+  // 유저별 최고 CP 캐릭터를 본캐로 판정 (2캐릭 이상인 유저만)
+  const mainCharSourceIds = useMemo(() => {
+    const allChars = [...teams.flat(2).filter((c) => !c.isDuplicate), ...bench]
+    const userMap = new Map<string, { sourceId: string; cp: number }[]>()
+    for (const c of allChars) {
+      if (!userMap.has(c.userNickname)) userMap.set(c.userNickname, [])
+      const list = userMap.get(c.userNickname)!
+      if (!list.find((e) => e.sourceId === c.sourceCharacterId)) {
+        list.push({ sourceId: c.sourceCharacterId, cp: c.combat_power })
+      }
+    }
+    const result = new Set<string>()
+    for (const [, chars] of userMap) {
+      if (chars.length < 2) continue
+      const main = chars.reduce((a, b) => (b.cp > a.cp ? b : a))
+      result.add(main.sourceId)
+    }
+    return result
+  }, [teams, bench])
+
   return (
     <DndContext
       sensors={sensors}
@@ -503,13 +530,22 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
                     </div>
                   </div>
 
-                  <button
-                    onClick={handleAutoAssign}
-                    disabled={loadingApplicants || !applicants.length}
-                    className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors"
-                  >
-                    자동 배치
-                  </button>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => handleAutoAssign(1)}
+                      disabled={loadingApplicants || !applicants.length}
+                      className="px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors"
+                    >
+                      자동배치 1
+                    </button>
+                    <button
+                      onClick={() => handleAutoAssign(2)}
+                      disabled={loadingApplicants || !applicants.length}
+                      className="px-3 py-2 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:bg-violet-400 transition-colors"
+                    >
+                      자동배치 2
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -569,6 +605,7 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
                               label: p.label,
                               characters: p.characters,
                             }))}
+                            mainCharSourceIds={mainCharSourceIds}
                             hoveredNickname={hoveredNickname}
                             onHoverNickname={setHoveredNickname}
                             onMoveOut={(char) => moveCharacter(char, { teamIdx, subIdx }, 'bench')}
@@ -600,6 +637,7 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
                         char={char}
                         allPartyLabels={allPartyLabels()}
                         onMoveTo={(tIdx, sIdx) => moveCharacter(char, 'bench', { teamIdx: tIdx, subIdx: sIdx })}
+                        isMain={mainCharSourceIds.has(char.sourceCharacterId)}
                       />
                     ))}
                   </div>

@@ -20,6 +20,7 @@ type Props = {
   onSwap: (char: PartySlotCharacter, toPartyNumber: number) => void
   onDuplicateTo: (char: PartySlotCharacter, toPartyNumber: number) => void
   onDelete?: () => void
+  mainCharSourceIds?: Set<string>
 }
 
 const TYPE_COLOR: Record<string, string> = {
@@ -44,6 +45,7 @@ type CharRowProps = {
   isSelected: boolean
   isDuplicateUser: boolean
   isHovered: boolean
+  isMainChar: boolean
   allParties: Props['allParties']
   onRowClick: (char: PartySlotCharacter) => void
   onMouseEnter: () => void
@@ -61,6 +63,7 @@ function DraggableCharRow({
   isSelected,
   isDuplicateUser,
   isHovered,
+  isMainChar,
   allParties,
   onRowClick,
   onMouseEnter,
@@ -119,6 +122,12 @@ function DraggableCharRow({
         <span className={`text-xs font-medium shrink-0 ${cls ? TYPE_COLOR[cls.type] : 'text-gray-500'}`}>
           {cls?.label ?? char.class}
         </span>
+
+        {isMainChar && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-semibold">
+            본캐
+          </span>
+        )}
 
         {char.isVolunteer && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold">
@@ -188,6 +197,7 @@ export default function PartyBoard({
   onSwap,
   onDuplicateTo,
   onDelete,
+  mainCharSourceIds,
 }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -245,6 +255,7 @@ export default function PartyBoard({
             isSelected={selectedId === char.slotId}
             isDuplicateUser={duplicateUsers.has(char.userNickname)}
             isHovered={hoveredNickname === char.userNickname}
+            isMainChar={!char.isDuplicate && (mainCharSourceIds?.has(char.sourceCharacterId) ?? false)}
             allParties={allParties}
             onRowClick={(c) => setSelectedId((prev) => (prev === c.slotId ? null : c.slotId))}
             onMouseEnter={() => onHoverNickname(char.userNickname)}

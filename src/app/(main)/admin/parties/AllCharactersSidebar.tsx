@@ -16,9 +16,11 @@ type Props = {
 function DraggableSidebarChar({
   char,
   disabled,
+  isMain,
 }: {
   char: PartyCharacter
   disabled: boolean
+  isMain?: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `sidebar:${char.id}`,
@@ -48,6 +50,11 @@ function DraggableSidebarChar({
         ⠿
       </span>
       <span className="font-medium text-gray-800 truncate flex-1">{char.nickname}</span>
+      {isMain && (
+        <span className="text-[9px] px-1 py-0.5 rounded bg-violet-100 text-violet-700 font-semibold shrink-0">
+          본캐
+        </span>
+      )}
       <span
         className={`shrink-0 font-medium ${
           cls?.type === 'support'
@@ -106,11 +113,12 @@ export default function AllCharactersSidebar({ users, applicantIds }: Props) {
                   {user.characters
                     .slice()
                     .sort((a, b) => b.combat_power - a.combat_power)
-                    .map((char) => (
+                    .map((char, idx) => (
                       <DraggableSidebarChar
                         key={char.id}
                         char={{ ...char, userNickname: user.nickname }}
                         disabled={applicantIds.has(char.id)}
+                        isMain={user.characters.length > 1 && idx === 0}
                       />
                     ))}
                 </div>

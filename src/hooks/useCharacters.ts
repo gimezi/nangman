@@ -1,5 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Character } from '@/app/(main)/characters/page'
+
+type Character = {
+  id: string
+  nickname: string
+  class: string
+  combat_power: number
+  server?: string | null
+}
 
 async function fetchCharacters(): Promise<Character[]> {
   const res = await fetch('/api/characters')

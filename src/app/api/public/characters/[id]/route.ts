@@ -5,10 +5,8 @@ type Params = { params: Promise<{ id: string }> }
 
 export async function PATCH(request: NextRequest, { params }: Params) {
   const { id } = await params
-  let body: Record<string, unknown>
-  try {
-    body = await request.json()
-  } catch {
+  const body: Record<string, unknown> | null = await request.json().catch(() => null)
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return NextResponse.json({ error: '유효하지 않은 요청이에요.' }, { status: 400 })
   }
 

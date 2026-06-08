@@ -1,12 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, AdminUser, useSyncCp } from '@/hooks/useAdminUsers'
+import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, AdminUser, useSyncCp, Character, useAdminDeleteCharacter } from '@/hooks/useAdminUsers'
 import { ClassType } from '@/models/classes'
 import { formatCp } from '@/lib/format'
 import AdminCharacterModal from './AdminCharacterModal'
-import { Character } from '@/app/(main)/characters/page'
-import { useAdminDeleteCharacter } from '@/hooks/useAdminUsers'
 
 type Props = { classes: ClassType[] }
 

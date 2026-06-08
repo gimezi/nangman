@@ -16,7 +16,7 @@ export default async function LoginPage({
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm p-8">
         <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">낭만 길드</h1>
-        <p className="text-center text-gray-500 text-sm mb-8">길드 관리 시스템</p>
+        <p className="text-center text-gray-500 text-sm mb-8">관리자 전용</p>
 
         {registered && (
           <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm text-center">
@@ -26,10 +26,16 @@ export default async function LoginPage({
 
         <LoginForm />
 
-        <p className="text-center text-sm text-gray-500 mt-6">
-          처음이신가요?{' '}
+        <p className="text-center text-sm text-gray-500 mt-6 mb-2">
+          관리자인가요?{' '}
           <a href="/signup" className="text-blue-600 font-medium hover:underline">
             회원가입
+          </a>
+        </p>
+
+        <p className="text-center text-sm text-gray-400 mt-3">
+          <a href="/characters" className="hover:text-gray-600 transition-colors">
+            ← 홈으로 돌아가기
           </a>
         </p>
       </div>

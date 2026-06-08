@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ClassType } from '@/models/classes'
-import { Character } from '@/app/(main)/characters/page'
+import { Character } from '@/hooks/useAdminUsers'
 import { useAdminCreateCharacter, useAdminUpdateCharacter } from '@/hooks/useAdminUsers'
 
 type Props = {

@@ -10,9 +10,7 @@ type NavItem = {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/characters', label: '내 캐릭터' },
-  { href: '/raids', label: '레이드 신청' },
-  { href: '/parties', label: '파티 확인' },
+  { href: '/characters', label: '길드원 목록' },
 ]
 
 const ADMIN_NAV_ITEMS: NavItem[] = [

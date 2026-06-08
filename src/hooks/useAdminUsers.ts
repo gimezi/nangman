@@ -1,5 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Character } from '@/app/(main)/characters/page'
+
+export type Character = {
+  id: string
+  nickname: string
+  class: string
+  combat_power: number
+  server?: string | null
+}
 
 export type AdminUser = {
   id: string

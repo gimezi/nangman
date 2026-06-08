@@ -7,6 +7,7 @@ export type PartyCharacter = {
   combat_power: number
   userNickname: string
   isVolunteer?: boolean
+  isAdmin?: boolean
 }
 
 export type PartySlotCharacter = PartyCharacter & {

@@ -16,7 +16,19 @@ type Member = {
   class: string
   combatPower: number
   userNickname: string
+  isAdmin: boolean
   isMe: boolean
+}
+
+const OFFICER_EXCEPTION = '필릭스용복리'
+
+function sortMembers(members: Member[]): Member[] {
+  return [...members].sort((a, b) => {
+    const aOfficer = a.isAdmin && a.userNickname !== OFFICER_EXCEPTION
+    const bOfficer = b.isAdmin && b.userNickname !== OFFICER_EXCEPTION
+    if (aOfficer !== bOfficer) return aOfficer ? -1 : 1
+    return a.userNickname.localeCompare(b.userNickname, 'ko')
+  })
 }
 
 type Party = {
@@ -269,7 +281,7 @@ export default function PartiesClient({ isAdmin }: { isAdmin: boolean }) {
                             </div>
 
                             <div className="divide-y divide-gray-50">
-                              {party.members.map((member, i) => {
+                              {sortMembers(party.members).map((member, i) => {
                                 const cls = CLASSES.find((c) => c.name === member.class)
                                 return (
                                   <div

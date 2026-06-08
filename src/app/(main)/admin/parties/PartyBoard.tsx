@@ -204,9 +204,13 @@ export default function PartyBoard({
   const { teamIdx, subIdx } = decodePartyNumber(partyNumber)
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: String(partyNumber) })
 
-  const sorted = [...characters].sort((a, b) =>
-    a.userNickname.localeCompare(b.userNickname, 'ko')
-  )
+  const OFFICER_EXCEPTION = '필릭스용복리'
+  const sorted = [...characters].sort((a, b) => {
+    const aOfficer = (a.isAdmin ?? false) && a.userNickname !== OFFICER_EXCEPTION
+    const bOfficer = (b.isAdmin ?? false) && b.userNickname !== OFFICER_EXCEPTION
+    if (aOfficer !== bOfficer) return aOfficer ? -1 : 1
+    return a.userNickname.localeCompare(b.userNickname, 'ko')
+  })
 
   const nicknameCounts = characters.reduce<Record<string, number>>((acc, c) => {
     acc[c.userNickname] = (acc[c.userNickname] ?? 0) + 1

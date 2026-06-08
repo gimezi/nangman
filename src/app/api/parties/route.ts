@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
           sort_order,
           characters (
             nickname, class, combat_power,
-            users ( nickname )
+            users ( nickname, role )
           )
         )
       `)
@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
         class: (m.characters as any)?.class ?? '',
         combatPower: (m.characters as any)?.combat_power ?? 0,
         userNickname: (m.characters as any)?.users?.nickname ?? '',
+        isAdmin: (m.characters as any)?.users?.role === 'admin',
         isMe: myIds.has(m.source_character_id),
       })),
   }))

@@ -2,12 +2,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 import CharactersClient from './CharactersClient'
 import PublicHeader from '@/components/PublicHeader'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 export default async function CharactersPage() {
   const { data: users } = await supabaseAdmin
     .from('users')
-    .select('id, nickname, role, characters(id, nickname, class, combat_power, server, taba, abyss, geulgi)')
+    .select('id, nickname, role, characters(id, nickname, class, combat_power, server, bulgari, taba, seokyu, eirel, abyss)')
     .order('created_at')
 
   return (

@@ -10,9 +10,11 @@ type Character = {
   class: string
   combat_power: number
   server?: string | null
+  bulgari?: boolean
   taba?: boolean
+  seokyu?: boolean
+  eirel?: boolean
   abyss?: boolean
-  geulgi?: boolean
 }
 
 type User = {
@@ -196,7 +198,7 @@ export default function CharactersClient({ users: initialUsers }: { users: User[
     patchCharacter(charId, { server: val })
   }
 
-  function toggleRaid(charId: string, field: 'taba' | 'abyss' | 'geulgi') {
+  function toggleRaid(charId: string, field: 'bulgari' | 'taba' | 'seokyu' | 'eirel' | 'abyss') {
     const char = users.flatMap((u) => u.characters).find((c) => c.id === charId)
     if (!char) return
     const next = !char[field]
@@ -225,17 +227,12 @@ export default function CharactersClient({ users: initialUsers }: { users: User[
       <>
         {/* 캐릭터 이름 */}
         <td className="px-4 py-2.5">
-          <div className="flex items-center gap-1.5 group/nick">
-            <span className="font-medium text-gray-900">{char.nickname}</span>
-            <button
-              onClick={() => { setEditing({ type: 'nickname', charId: char.id, value: char.nickname }) }}
-              className="text-gray-300 hover:text-gray-500 opacity-0 group-hover/nick:opacity-100 transition-all"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            </button>
-          </div>
+          <button
+            onClick={() => { setEditing({ type: 'nickname', charId: char.id, value: char.nickname }) }}
+            className="font-medium text-gray-900 hover:text-blue-600 transition-colors text-left"
+          >
+            {char.nickname}
+          </button>
         </td>
 
         {/* 직업 */}
@@ -301,7 +298,7 @@ export default function CharactersClient({ users: initialUsers }: { users: User[
         </td>
 
         {/* 레이드 참여 토글 */}
-        {(['taba', 'abyss', 'geulgi'] as const).map((field) => (
+        {(['bulgari', 'taba', 'seokyu', 'eirel', 'abyss'] as const).map((field) => (
           <td key={field} className="px-2 py-2.5 text-center">
             <button
               onClick={() => { toggleRaid(char.id, field) }}
@@ -332,7 +329,7 @@ export default function CharactersClient({ users: initialUsers }: { users: User[
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="min-w-full text-sm whitespace-nowrap">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="w-8" />
@@ -340,9 +337,11 @@ export default function CharactersClient({ users: initialUsers }: { users: User[
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">직업</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">전투력</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">서버</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">붉라리</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">타바</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">서큐</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">에이렐</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">어비스</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">글기</th>
               </tr>
             </thead>
             <tbody>
@@ -374,7 +373,7 @@ export default function CharactersClient({ users: initialUsers }: { users: User[
                         <>
                           <td className="px-4 py-2.5 text-gray-300">—</td>
                           <td /><td /><td className="hidden sm:table-cell" />
-                          <td /><td /><td />
+                          <td /><td /><td /><td /><td />
                         </>
                       )}
                     </tr>,

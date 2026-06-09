@@ -10,7 +10,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: '유효하지 않은 요청이에요.' }, { status: 400 })
   }
 
-  const allowed = ['nickname', 'class', 'combat_power', 'server', 'taba', 'abyss', 'geulgi']
+  const allowed = ['nickname', 'class', 'combat_power', 'server', 'bulgari', 'taba', 'seokyu', 'eirel', 'abyss']
   const update: Record<string, unknown> = {}
   for (const key of allowed) {
     if (key in body) update[key === 'class' ? 'class' : key] = body[key]

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { CLASSES } from '@/models/classes'
 import { formatCp } from '@/lib/format'
 import { decodePartyNumber } from '@/lib/partyAlgorithm'
@@ -55,7 +56,8 @@ function avgCp(members: Member[]) {
   return Math.round(members.reduce((s, m) => s + m.combatPower, 0) / members.length)
 }
 
-export default function PartiesPublicClient({ raids }: { raids: Raid[] }) {
+export default function PartiesPublicClient({ raids, isAdmin }: { raids: Raid[]; isAdmin: boolean }) {
+  const router = useRouter()
   const allSchedules = raids.flatMap((r) =>
     r.raid_schedules.map((s) => ({ ...s, raidName: r.name }))
   )
@@ -64,6 +66,30 @@ export default function PartiesPublicClient({ raids }: { raids: Raid[] }) {
   const [parties, setParties] = useState<Party[]>([])
   const [weekDate, setWeekDate] = useState('')
   const [loading, setLoading] = useState(false)
+  const [discordLoading, setDiscordLoading] = useState(false)
+  const [snackbar, setSnackbar] = useState('')
+
+  async function handleDiscord() {
+    setDiscordLoading(true)
+    try {
+      const res = await fetch('/api/admin/discord', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduleId: selectedId, weekDate }),
+      })
+      if (res.ok) {
+        setSnackbar('디스코드에 공유했어요!')
+      } else {
+        const { error } = await res.json().catch(() => ({ error: '알 수 없는 오류' }))
+        setSnackbar(`오류: ${error}`)
+      }
+    } catch {
+      setSnackbar('요청 실패')
+    } finally {
+      setDiscordLoading(false)
+      setTimeout(() => setSnackbar(''), 3000)
+    }
+  }
 
   useEffect(() => {
     if (!selectedId) return
@@ -107,6 +133,30 @@ export default function PartiesPublicClient({ raids }: { raids: Raid[] }) {
           </button>
         ))}
       </div>
+
+      {isAdmin && (
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => router.push(`/admin/parties?scheduleId=${selectedId}&weekDate=${weekDate}`)}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            파티 수정
+          </button>
+          <button
+            onClick={handleDiscord}
+            disabled={discordLoading || parties.length === 0}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+          >
+            {discordLoading ? '공유 중...' : '디스코드 공유'}
+          </button>
+        </div>
+      )}
+
+      {snackbar && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
+          {snackbar}
+        </div>
+      )}
 
       {weekDate && (
         <p className="text-sm text-gray-400 mb-4">{weekDate.replace(/-/g, '.')} 기준</p>

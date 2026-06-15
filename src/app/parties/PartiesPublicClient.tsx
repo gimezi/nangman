@@ -153,7 +153,10 @@ export default function PartiesPublicClient({ raids, isAdmin }: { raids: Raid[];
       )}
 
       {snackbar && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
+        <div
+          className="text-sm rounded-lg shadow-lg"
+          style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: '#1f2937', color: '#ffffff', padding: '8px 16px', whiteSpace: 'nowrap' }}
+        >
           {snackbar}
         </div>
       )}
@@ -194,8 +197,25 @@ export default function PartiesPublicClient({ raids, isAdmin }: { raids: Raid[];
                 const avg = avgCp(party.members)
                 const empty = Math.max(0, partySize - party.members.length)
 
+                const handleCopy = isAdmin
+                  ? () => {
+                      const label = `${TEAM_LABEL[teamIdx] ?? `${teamIdx + 1}팀`} ${subIdx + 1}파티`
+                      const names = party.members.map((m) => {
+                        const cls = CLASSES.find((c) => c.name === m.class)
+                        return `${m.userNickname}(${cls?.label ?? m.class})`
+                      }).join('/')
+                      navigator.clipboard.writeText(`${label} - [${names}]`)
+                      setSnackbar(`${label} 복사됨!`)
+                      setTimeout(() => setSnackbar(''), 3000)
+                    }
+                  : undefined
+
                 return (
-                  <div key={party.partyNumber} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div
+                    key={party.partyNumber}
+                    onClick={handleCopy}
+                    className={`bg-white rounded-xl border border-gray-200 overflow-hidden ${isAdmin ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+                  >
                     <div className={`flex items-center justify-between px-4 py-2.5 border-b ${color.header}`}>
                       <span className={`text-xs font-semibold ${color.text}`}>
                         {TEAM_LABEL[teamIdx] ?? `${teamIdx + 1}팀`} {subIdx + 1}파티

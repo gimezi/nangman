@@ -72,10 +72,11 @@ export default function PartiesPublicClient({ raids, isAdmin }: { raids: Raid[];
   async function handleDiscord() {
     setDiscordLoading(true)
     try {
+      const raidName = allSchedules.find((s) => s.id === selectedId)?.raidName ?? ''
       const res = await fetch('/api/admin/discord', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scheduleId: selectedId, weekDate }),
+        body: JSON.stringify({ parties, weekDate, raidName }),
       })
       if (res.ok) {
         setSnackbar('디스코드에 공유했어요!')

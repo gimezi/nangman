@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
     : ''
 
   // 팀별 그룹핑
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const teamMap = new Map<number, { partyNumber: number; members: any[] }[]>()
   for (const party of parties) {
     const teamIdx = Math.floor((party.partyNumber - 1) / 100)

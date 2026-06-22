@@ -199,13 +199,26 @@ export default function PartiesPublicClient({ raids, isAdmin }: { raids: Raid[];
                 const empty = Math.max(0, partySize - party.members.length)
 
                 const handleCopy = isAdmin
-                  ? () => {
+                  ? async () => {
                       const label = `${TEAM_LABEL[teamIdx] ?? `${teamIdx + 1}팀`} ${subIdx + 1}파티`
                       const names = party.members.map((m) => {
                         const cls = CLASSES.find((c) => c.name === m.class)
-                        return `${m.userNickname}(${cls?.label ?? m.class})`
+                        const clsLabel = cls?.label ?? m.class
+                        return `${m.userNickname}(${clsLabel.charAt(0)})`
                       }).join('/')
-                      navigator.clipboard.writeText(`${label} - [${names}]`)
+                      const text = `${label} - [${names}]`
+                      try {
+                        await navigator.clipboard.writeText(text)
+                      } catch {
+                        const ta = document.createElement('textarea')
+                        ta.value = text
+                        ta.style.position = 'fixed'
+                        ta.style.opacity = '0'
+                        document.body.appendChild(ta)
+                        ta.select()
+                        document.execCommand('copy')
+                        document.body.removeChild(ta)
+                      }
                       setSnackbar(`${label} 복사됨!`)
                       setTimeout(() => setSnackbar(''), 3000)
                     }

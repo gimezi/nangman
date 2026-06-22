@@ -201,11 +201,7 @@ export default function PartiesPublicClient({ raids, isAdmin }: { raids: Raid[];
                 const handleCopy = isAdmin
                   ? async () => {
                       const label = `${TEAM_LABEL[teamIdx] ?? `${teamIdx + 1}팀`} ${subIdx + 1}파티`
-                      const names = party.members.map((m) => {
-                        const cls = CLASSES.find((c) => c.name === m.class)
-                        const clsLabel = cls?.label ?? m.class
-                        return `${m.userNickname}(${clsLabel.charAt(0)})`
-                      }).join('/')
+                      const names = party.members.map((m) => m.userNickname).join(' / ')
                       const text = `${label} - [${names}]`
                       try {
                         await navigator.clipboard.writeText(text)

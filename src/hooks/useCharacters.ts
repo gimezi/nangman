@@ -6,6 +6,7 @@ type Character = {
   class: string
   combat_power: number
   server?: string | null
+  magic_resistance?: number | null
 }
 
 async function fetchCharacters(): Promise<Character[]> {

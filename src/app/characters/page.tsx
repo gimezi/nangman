@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export default async function CharactersPage() {
   const { data: users } = await supabaseAdmin
     .from('users')
-    .select('id, nickname, role, characters(id, nickname, class, combat_power, server, bulgari, taba, seokyu, eirel, abyss)')
+    .select('id, nickname, role, characters(id, nickname, class, combat_power, server, magic_resistance, bulgari, taba, seokyu, eirel, abyss, kabrak)')
     .order('created_at')
 
   return (

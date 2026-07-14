@@ -189,7 +189,12 @@ export default function AdminCharacterList({ classes }: Props) {
                                     <span className="text-xs px-1.5 py-0.5 bg-indigo-50 text-indigo-500 rounded shrink-0">{char.server}</span>
                                   )}
                                 </div>
-                                <span className="text-xs text-gray-400">{formatCp(char.combat_power)}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400">{formatCp(char.combat_power)}</span>
+                                  {char.magic_resistance != null && (
+                                    <span className="text-xs text-purple-500">마도저항 {char.magic_resistance}만</span>
+                                  )}
+                                </div>
                               </div>
                               <div className="flex gap-1">
                                 <button

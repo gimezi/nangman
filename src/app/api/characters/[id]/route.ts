@@ -8,7 +8,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const { id } = await params
   const body = await request.json()
-  const { nickname, class: cls, combat_power } = body
+  const { nickname, class: cls, combat_power, magic_resistance } = body
 
   if (!nickname || !cls || combat_power == null) {
     return NextResponse.json({ error: '모든 항목을 입력해주세요.' }, { status: 400 })
@@ -16,7 +16,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const { data, error } = await supabase
     .from('characters')
-    .update({ nickname, class: cls, combat_power })
+    .update({ nickname, class: cls, combat_power, magic_resistance: magic_resistance ?? null })
     .eq('id', id)
     .eq('user_id', session.userId)
     .select()

@@ -330,6 +330,7 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
           nickname: slot.nickname,
           class: slot.class,
           combat_power: slot.combat_power,
+          magic_resistance: slot.magic_resistance,
           userNickname: slot.userNickname,
         })
       }

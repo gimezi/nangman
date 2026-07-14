@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     .select(`
       character_id,
       is_volunteer,
-      characters ( id, nickname, class, combat_power, users(nickname, role) )
+      characters ( id, nickname, class, combat_power, magic_resistance, users(nickname, role) )
     `)
     .eq('raid_schedule_id', scheduleId)
     .eq('week_date', weekDate)
@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     nickname: a.characters.nickname,
     class: a.characters.class,
     combat_power: a.characters.combat_power,
+    magic_resistance: a.characters.magic_resistance ?? null,
     userNickname: a.characters.users?.nickname ?? '',
     isVolunteer: a.is_volunteer ?? false,
     isAdmin: a.characters.users?.role === 'admin',

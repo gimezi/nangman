@@ -95,7 +95,7 @@ function DraggableCharRow({
     >
       <div
         onClick={() => onRowClick(char)}
-        className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
+        className={`flex gap-2 px-3 py-2 cursor-pointer transition-colors ${
           isSelected
             ? 'bg-yellow-50'
             : isDuplicateUser
@@ -108,42 +108,44 @@ function DraggableCharRow({
         <span
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 touch-none select-none shrink-0"
+          className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 touch-none select-none shrink-0 mt-0.5"
         >
           ⠿
         </span>
 
-        <span className="flex-1 truncate text-gray-800 font-medium">
-          {char.userNickname}
-          {userTotalChars > 1 && (
-            <span className="ml-1 text-[11px] font-normal text-gray-400">({userTotalChars})</span>
-          )}
-        </span>
-        <span className={`text-xs font-medium shrink-0 ${cls ? TYPE_COLOR[cls.type] : 'text-gray-500'}`}>
-          {cls?.label ?? char.class}
-        </span>
-
-        {isMainChar && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-semibold">
-            본캐
-          </span>
-        )}
-
-        {char.isVolunteer && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold">
-            지원
-          </span>
-        )}
-
-        {char.isDuplicate && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
-            중복
-          </span>
-        )}
-
-        <span className="ml-auto text-xs text-gray-500 tabular-nums">
-          {formatCp(char.combat_power)}
-        </span>
+        <div className="flex-1 min-w-0">
+          {/* 1줄: 닉네임 + 직업 + 뱃지 */}
+          <div className="flex items-center gap-1.5 justify-between">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="font-medium text-gray-800 truncate">
+                {char.userNickname}
+                {userTotalChars > 1 && (
+                  <span className="ml-1 text-[11px] font-normal text-gray-400">({userTotalChars})</span>
+                )}
+              </span>
+              <span className={`text-xs font-medium shrink-0 ${cls ? TYPE_COLOR[cls.type] : 'text-gray-500'}`}>
+                {cls?.label ?? char.class}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {isMainChar && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-semibold">본캐</span>
+              )}
+              {char.isVolunteer && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold">지원</span>
+              )}
+              {char.isDuplicate && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">중복</span>
+              )}
+            </div>
+          </div>
+          {/* 2줄: 투력 / 마도저항 */}
+          <div className="flex items-center justify-end mt-0.5">
+            <span className="text-xs text-gray-400 tabular-nums">
+              {formatCp(char.combat_power)}{char.magic_resistance != null ? ` / ${char.magic_resistance}만` : ''}
+            </span>
+          </div>
+        </div>
       </div>
 
       {isSelected && (

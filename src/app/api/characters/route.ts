@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('characters')
-    .select('id, nickname, class, combat_power')
+    .select('id, nickname, class, combat_power, magic_resistance')
     .eq('user_id', session.userId)
     .order('combat_power', { ascending: false })
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { nickname, class: cls, combat_power } = body
+  const { nickname, class: cls, combat_power, magic_resistance } = body
 
   if (!nickname || !cls || combat_power == null) {
     return NextResponse.json({ error: '모든 항목을 입력해주세요.' }, { status: 400 })
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('characters')
-    .insert({ user_id: session.userId, nickname, class: cls, combat_power })
+    .insert({ user_id: session.userId, nickname, class: cls, combat_power, magic_resistance: magic_resistance ?? null })
     .select()
     .single()
 

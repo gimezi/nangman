@@ -6,6 +6,7 @@ export type Character = {
   class: string
   combat_power: number
   server?: string | null
+  magic_resistance?: number | null
 }
 
 export type AdminUser = {
@@ -56,7 +57,7 @@ async function deleteUser(id: string) {
   }
 }
 
-async function createCharacter(body: { user_id: string; nickname: string; class: string; combat_power: number; server?: string | null }) {
+async function createCharacter(body: { user_id: string; nickname: string; class: string; combat_power: number; server?: string | null; magic_resistance?: number | null }) {
   const res = await fetch('/api/admin/characters', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -69,7 +70,7 @@ async function createCharacter(body: { user_id: string; nickname: string; class:
   return res.json()
 }
 
-async function updateCharacter({ id, ...body }: { id: string; nickname: string; class: string; combat_power: number; server?: string | null }) {
+async function updateCharacter({ id, ...body }: { id: string; nickname: string; class: string; combat_power: number; server?: string | null; magic_resistance?: number | null }) {
   const res = await fetch(`/api/admin/characters/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

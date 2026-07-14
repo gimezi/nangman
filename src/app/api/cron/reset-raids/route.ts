@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
   const { error } = await supabase
     .from('characters')
-    .update({ bulgari: false, taba: false, seokyu: false, eirel: false, abyss: false })
+    .update({ bulgari: false, taba: false, seokyu: false, eirel: false, abyss: false, kabrak: false })
     .neq('id', '')
 
   if (error) {

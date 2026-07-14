@@ -5,6 +5,7 @@ export type PartyCharacter = {
   nickname: string
   class: string
   combat_power: number
+  magic_resistance?: number | null
   userNickname: string
   isVolunteer?: boolean
   isAdmin?: boolean

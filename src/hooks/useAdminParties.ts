@@ -9,6 +9,7 @@ export type UserWithCharacters = {
     nickname: string
     class: string
     combat_power: number
+    magic_resistance?: number | null
   }>
 }
 

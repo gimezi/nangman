@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   const guard = await requireAdmin()
   if (guard.error) return guard.error
 
-  const { user_id, nickname, class: cls, combat_power, server } = await request.json()
+  const { user_id, nickname, class: cls, combat_power, server, magic_resistance } = await request.json()
 
   if (!user_id || !nickname || !cls || combat_power == null) {
     return NextResponse.json({ error: '모든 항목을 입력해주세요.' }, { status: 400 })
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('characters')
-    .insert({ user_id, nickname, class: cls, combat_power, server: server ?? null })
+    .insert({ user_id, nickname, class: cls, combat_power, server: server ?? null, magic_resistance: magic_resistance ?? null })
     .select()
     .single()
 

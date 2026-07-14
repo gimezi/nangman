@@ -66,7 +66,9 @@ function DraggableSidebarChar({
       >
         {cls?.label ?? char.class}
       </span>
-      <span className="text-gray-400 tabular-nums shrink-0">{formatCp(char.combat_power)}</span>
+      <span className="text-gray-400 tabular-nums shrink-0">
+        {formatCp(char.combat_power)}{char.magic_resistance != null ? ` / ${char.magic_resistance}만` : ''}
+      </span>
     </div>
   )
 }

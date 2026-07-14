@@ -10,11 +10,13 @@ type Character = {
   class: string
   combat_power: number
   server?: string | null
+  magic_resistance?: number | null
   bulgari?: boolean
   taba?: boolean
   seokyu?: boolean
   eirel?: boolean
   abyss?: boolean
+  kabrak?: boolean
 }
 
 type User = {
@@ -38,7 +40,7 @@ type EditState =
   | { type: 'nickname'; charId: string; value: string }
   | { type: 'class'; charId: string; top: number; left: number }
   | { type: 'combat_power'; charId: string; value: string }
-  | { type: 'server'; charId: string; value: string }
+  | { type: 'magic_resistance'; charId: string; value: string }
   | null
 
 async function patchCharacter(id: string, body: Record<string, unknown>) {
@@ -192,13 +194,14 @@ export default function CharactersClient({ users: initialUsers }: { users: User[
     patchCharacter(charId, { combat_power: cp })
   }
 
-  function saveServer(charId: string, server: string) {
-    const val = server.trim() || null
-    updateChar(charId, { server: val })
-    patchCharacter(charId, { server: val })
+  function saveMagicResistance(charId: string, raw: string) {
+    const val = raw.trim() ? parseFloat(raw) : null
+    if (val !== null && (isNaN(val) || val < 0)) return
+    updateChar(charId, { magic_resistance: val })
+    patchCharacter(charId, { magic_resistance: val })
   }
 
-  function toggleRaid(charId: string, field: 'bulgari' | 'taba' | 'seokyu' | 'eirel' | 'abyss') {
+  function toggleRaid(charId: string, field: 'bulgari' | 'taba' | 'seokyu' | 'eirel' | 'abyss' | 'kabrak') {
     const char = users.flatMap((u) => u.characters).find((c) => c.id === charId)
     if (!char) return
     const next = !char[field]
@@ -221,7 +224,7 @@ export default function CharactersClient({ users: initialUsers }: { users: User[
   function renderCharCells(char: Character) {
     const cls = CLASSES.find((c) => c.name === char.class)
     const isEditingCp = editing?.type === 'combat_power' && editing.charId === char.id
-    const isEditingServer = editing?.type === 'server' && editing.charId === char.id
+    const isEditingMr = editing?.type === 'magic_resistance' && editing.charId === char.id
 
     return (
       <>
@@ -271,34 +274,34 @@ export default function CharactersClient({ users: initialUsers }: { users: User[
           )}
         </td>
 
-        {/* 서버 */}
-        <td className="px-4 py-2.5 hidden sm:table-cell">
-          {isEditingServer ? (
+        {/* 마도저항 */}
+        <td className="px-4 py-2.5 text-right">
+          {isEditingMr ? (
             <input
               autoFocus
-              type="text"
+              type="number"
               value={(editing as { value: string }).value}
-              onChange={(e) => setEditing({ type: 'server', charId: char.id, value: e.target.value })}
-              onBlur={() => { saveServer(char.id, (editing as { value: string }).value); setEditing(null) }}
+              onChange={(e) => setEditing({ type: 'magic_resistance', charId: char.id, value: e.target.value })}
+              onBlur={() => { saveMagicResistance(char.id, (editing as { value: string }).value); setEditing(null) }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') { saveServer(char.id, (editing as { value: string }).value); setEditing(null) }
+                if (e.key === 'Enter') { saveMagicResistance(char.id, (editing as { value: string }).value); setEditing(null) }
                 if (e.key === 'Escape') setEditing(null)
               }}
-              className="w-20 px-2 py-1 border border-blue-400 rounded-lg text-sm focus:outline-none"
-              placeholder="서버"
+              step="0.1"
+              className="w-20 text-right px-2 py-1 border border-blue-400 rounded-lg text-sm focus:outline-none"
             />
           ) : (
             <button
-              onClick={() => { setEditing({ type: 'server', charId: char.id, value: char.server ?? '' }) }}
-              className="text-gray-400 hover:text-blue-600 transition-colors text-left"
+              onClick={() => setEditing({ type: 'magic_resistance', charId: char.id, value: char.magic_resistance?.toString() ?? '' })}
+              className="tabular-nums text-gray-600 hover:text-blue-600 transition-colors"
             >
-              {char.server || <span className="text-gray-200">—</span>}
+              {char.magic_resistance != null ? `${char.magic_resistance}만` : <span className="text-gray-200">—</span>}
             </button>
           )}
         </td>
 
         {/* 레이드 참여 토글 */}
-        {(['bulgari', 'taba', 'seokyu', 'eirel', 'abyss'] as const).map((field) => (
+        {(['seokyu', 'eirel', 'abyss', 'kabrak'] as const).map((field) => (
           <td key={field} className="px-2 py-2.5 text-center">
             <button
               onClick={() => { toggleRaid(char.id, field) }}
@@ -336,12 +339,11 @@ export default function CharactersClient({ users: initialUsers }: { users: User[
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">캐릭터</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">직업</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">전투력</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">서버</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">붉라리</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">타바</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">마도저항</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">서큐</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">에이렐</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">어비스</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">카브락</th>
               </tr>
             </thead>
             <tbody>
@@ -372,8 +374,8 @@ export default function CharactersClient({ users: initialUsers }: { users: User[
                       {main ? renderCharCells(main) : (
                         <>
                           <td className="px-4 py-2.5 text-gray-300">—</td>
-                          <td /><td /><td className="hidden sm:table-cell" />
-                          <td /><td /><td /><td /><td />
+                          <td /><td /><td />
+                          <td /><td /><td /><td />
                         </>
                       )}
                     </tr>,

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import {
-  useAdminRaids, useCreateRaid, useDeleteRaid,
+  useAdminRaids, useCreateRaid, useUpdateRaid, useDeleteRaid,
   useCreateSchedule, useUpdateSchedule, useDeleteSchedule,
   useScheduleApplications, useCancelApplication, useClearWeek, useClearAllApplications,
   useSyncSheet,
@@ -28,6 +28,7 @@ type SyncResultState = { scheduleId: string; results: import('@/app/api/admin/sy
 export default function AdminRaidList() {
   const { data: raids = [], isLoading } = useAdminRaids()
   const createRaid = useCreateRaid()
+  const updateRaid = useUpdateRaid()
   const deleteRaid = useDeleteRaid()
   const deleteSchedule = useDeleteSchedule()
 
@@ -36,6 +37,7 @@ export default function AdminRaidList() {
   const [bulkApply, setBulkApply] = useState<BulkApplyState>(null)
   const [clearConfirm, setClearConfirm] = useState<ClearConfirmState>(null)
   const [addRaidForm, setAddRaidForm] = useState({ open: false, name: '', image_url: '' })
+  const [editRaidForm, setEditRaidForm] = useState<{ open: boolean; id: string; name: string; image_url: string }>({ open: false, id: '', name: '', image_url: '' })
   const [syncResult, setSyncResult] = useState<SyncResultState>(null)
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const syncSheet = useSyncSheet()
@@ -73,6 +75,10 @@ export default function AdminRaidList() {
                 <Image src={raid.image_url} alt={raid.name} width={40} height={40} unoptimized className="rounded-lg object-cover w-10 h-10" />
               )}
               <span className="font-bold text-gray-900 flex-1">{raid.name}</span>
+              <button
+                onClick={() => setEditRaidForm({ open: true, id: raid.id, name: raid.name, image_url: raid.image_url ?? '' })}
+                className="text-sm text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+              >수정</button>
               <button
                 onClick={() => { if (confirm(`${raid.name}을 삭제할까요?`)) deleteRaid.mutate(raid.id) }}
                 className="text-sm text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50"
@@ -227,6 +233,50 @@ export default function AdminRaidList() {
                 disabled={createRaid.isPending}
                 className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-blue-400"
               >{createRaid.isPending ? '처리 중...' : '추가'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 레이드 수정 모달 */}
+      {editRaidForm.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setEditRaidForm((f) => ({ ...f, open: false }))} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">레이드 수정</h2>
+            <div className="flex flex-col gap-3">
+              <input
+                type="text"
+                value={editRaidForm.name}
+                onChange={(e) => setEditRaidForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="레이드 이름"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                value={editRaidForm.image_url}
+                onChange={(e) => setEditRaidForm((f) => ({ ...f, image_url: e.target.value }))}
+                placeholder="이미지 URL (선택)"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {editRaidForm.image_url && (
+                <div className="flex items-center gap-2">
+                  <Image src={editRaidForm.image_url} alt="미리보기" width={40} height={40} unoptimized className="rounded-lg object-cover w-10 h-10 border border-gray-200" />
+                  <span className="text-xs text-gray-400">이미지 미리보기</span>
+                </div>
+              )}
+            </div>
+            {updateRaid.error && <p className="text-red-500 text-sm mt-2">{updateRaid.error.message}</p>}
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setEditRaidForm((f) => ({ ...f, open: false }))} className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-700">취소</button>
+              <button
+                onClick={() => updateRaid.mutate(
+                  { raidId: editRaidForm.id, name: editRaidForm.name, image_url: editRaidForm.image_url },
+                  { onSuccess: () => setEditRaidForm({ open: false, id: '', name: '', image_url: '' }) }
+                )}
+                disabled={updateRaid.isPending || !editRaidForm.name.trim()}
+                className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-blue-400"
+              >{updateRaid.isPending ? '처리 중...' : '저장'}</button>
             </div>
           </div>
         </div>

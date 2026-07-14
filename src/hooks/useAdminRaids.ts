@@ -15,6 +15,14 @@ async function createRaid(body: { name: string; image_url?: string }) {
   return res.json()
 }
 
+async function updateRaid({ raidId, name, image_url }: { raidId: string; name: string; image_url?: string }) {
+  const res = await fetch(`/api/admin/raids/${raidId}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, image_url }),
+  })
+  if (!res.ok) { const { error } = await res.json(); throw new Error(error) }
+  return res.json()
+}
+
 async function deleteRaid(raidId: string) {
   const res = await fetch(`/api/admin/raids/${raidId}`, { method: 'DELETE' })
   if (!res.ok) throw new Error('레이드 삭제 실패')
@@ -105,6 +113,11 @@ export function useScheduleApplications(scheduleId: string | null) {
 export function useCreateRaid() {
   const qc = useQueryClient()
   return useMutation({ mutationFn: createRaid, onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-raids'] }) })
+}
+
+export function useUpdateRaid() {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: updateRaid, onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-raids'] }) })
 }
 
 export function useDeleteRaid() {

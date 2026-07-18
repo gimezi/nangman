@@ -295,7 +295,7 @@ export default function CharactersClient({ users: initialUsers }: { users: User[
               onClick={() => setEditing({ type: 'magic_resistance', charId: char.id, value: char.magic_resistance?.toString() ?? '' })}
               className="tabular-nums text-gray-600 hover:text-blue-600 transition-colors"
             >
-              {char.magic_resistance != null ? `${char.magic_resistance}만` : <span className="text-gray-200">—</span>}
+              {char.magic_resistance != null ? `${char.magic_resistance}` : <span className="text-gray-200">—</span>}
             </button>
           )}
         </td>

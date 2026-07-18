@@ -142,7 +142,7 @@ function DraggableCharRow({
           {/* 2줄: 투력 / 마도저항 */}
           <div className="flex items-center justify-end mt-0.5">
             <span className="text-xs text-gray-400 tabular-nums">
-              {formatCp(char.combat_power)}{char.magic_resistance != null ? ` / ${char.magic_resistance}만` : ''}
+              {formatCp(char.combat_power)}{char.magic_resistance != null ? ` / ${char.magic_resistance}` : ''}
             </span>
           </div>
         </div>

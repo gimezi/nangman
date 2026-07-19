@@ -1,0 +1,16 @@
+name: Weekly Raid Reset
+
+on:
+  schedule:
+    - cron: '0 21 * * 0'  # 매주 일요일 21:00 UTC = 월요일 06:00 KST
+  workflow_dispatch:       # 수동 실행 버튼
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call reset-raids API
+        run: |
+          curl -f -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/cron/reset-raids"

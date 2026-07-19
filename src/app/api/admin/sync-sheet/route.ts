@@ -114,19 +114,22 @@ export async function POST(request: NextRequest) {
 
       const { data: chars } = await supabase
         .from('characters')
-        .select('id, combat_power')
+        .select('id, combat_power, magic_resistance')
         .eq('user_id', userId)
         .eq('class', entry.cls)
 
       const available = (chars ?? []).filter((c) => !alreadyUsed.includes(c.id))
       if (available.length === 0) {
-        missing.push({ userNickname: entry.userNickname, userId, cls: entry.cls, cp: entry.cp, isVolunteer: entry.isVolunteer })
+        missing.push({ userNickname: entry.userNickname, userId, cls: entry.cls, cp: entry.cp, magic_resistance: entry.magic_resistance, isVolunteer: entry.isVolunteer })
         continue
       }
 
       const char = available[0]
       const newCp = Math.round(entry.cp * 10000)
-      await supabase.from('characters').update({ combat_power: newCp }).eq('id', char.id)
+      const updates: Record<string, unknown> = {}
+      if (char.combat_power !== newCp) updates.combat_power = newCp
+      if (entry.magic_resistance != null && char.magic_resistance !== entry.magic_resistance) updates.magic_resistance = entry.magic_resistance
+      if (Object.keys(updates).length > 0) await supabase.from('characters').update(updates).eq('id', char.id)
 
       usedCharIds.set(key, [...alreadyUsed, char.id])
       inserts.push({ raid_schedule_id: scheduleId, character_id: char.id, week_date: dateStr, is_volunteer: entry.isVolunteer })

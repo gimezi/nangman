@@ -37,7 +37,7 @@ export type SyncDateResult = {
   date: string
   status: 'ok' | 'no_schedule' | 'error'
   inserted?: number
-  skipped?: string[]
+  skipped?: { nickname: string; rawLine: string }[]
   missing?: MissingEntry[]
 }
 
@@ -99,13 +99,13 @@ export async function POST(request: NextRequest) {
 
     const usedCharIds = new Map<string, string[]>()
     const inserts: { raid_schedule_id: string; character_id: string; week_date: string; is_volunteer: boolean }[] = []
-    const skipped: string[] = []
+    const skipped: { nickname: string; rawLine: string }[] = []
     const missing: MissingEntry[] = []
 
     for (const entry of entries) {
       const userId = userIdMap[entry.userNickname]
       if (!userId) {
-        skipped.push(entry.userNickname)
+        skipped.push({ nickname: entry.userNickname, rawLine: entry.rawLine })
         continue
       }
 

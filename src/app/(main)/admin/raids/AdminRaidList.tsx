@@ -163,13 +163,35 @@ export default function AdminRaidList() {
                         ) : (
                           <div className="flex flex-col gap-1.5">
                             {syncResult.results.map((r) => (
-                              <div key={r.date} className={`rounded-md px-2.5 py-1.5 text-xs ${r.status === 'ok' ? 'bg-green-50 border border-green-200' : r.status === 'no_schedule' ? 'bg-gray-50 border border-gray-200' : 'bg-red-50 border border-red-200'}`}>
+                              <div key={r.date} className={`rounded-md px-2.5 py-2 text-xs ${r.status === 'ok' ? 'bg-green-50 border border-green-200' : r.status === 'no_schedule' ? 'bg-gray-50 border border-gray-200' : 'bg-red-50 border border-red-200'}`}>
                                 <span className="font-medium">{r.date}</span>
                                 {r.status === 'ok' && (
-                                  <span className="text-green-700 ml-2">{r.inserted}명 등록
-                                    {r.skipped && r.skipped.length > 0 && <span className="text-gray-500 ml-1">· 유저없음 {r.skipped.length}명</span>}
-                                    {r.missing && r.missing.length > 0 && <span className="text-amber-600 ml-1">· 캐릭없음 {r.missing.length}개</span>}
-                                  </span>
+                                  <>
+                                    <span className="text-green-700 ml-2">{r.inserted}명 등록</span>
+                                    {r.skipped && r.skipped.length > 0 && (
+                                      <div className="mt-1.5">
+                                        <p className="text-gray-500 font-medium mb-1">유저없음 {r.skipped.length}명</p>
+                                        <div className="flex flex-col gap-0.5">
+                                          {r.skipped.map((s, i) => (
+                                            <div key={i} className="flex items-center gap-2">
+                                              <span className="text-gray-400 w-14 shrink-0">{s.nickname}</span>
+                                              <code className="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">{s.rawLine}</code>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {r.missing && r.missing.length > 0 && (
+                                      <div className="mt-1.5">
+                                        <p className="text-amber-600 font-medium mb-1">캐릭없음 {r.missing.length}개</p>
+                                        <div className="flex flex-col gap-0.5">
+                                          {r.missing.map((m, i) => (
+                                            <code key={i} className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-mono">{m.rawLine}</code>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </>
                                 )}
                                 {r.status === 'no_schedule' && <span className="text-gray-500 ml-2">해당 요일 스케줄 없음</span>}
                                 {r.status === 'error' && <span className="text-red-600 ml-2">등록 오류</span>}

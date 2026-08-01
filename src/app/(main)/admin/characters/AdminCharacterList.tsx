@@ -30,7 +30,13 @@ export default function AdminCharacterList({ classes }: Props) {
   const [modal, setModal] = useState<ModalState>(null)
   const [newNickname, setNewNickname] = useState('')
   const [search, setSearch] = useState('')
-  const [syncResult, setSyncResult] = useState<{ created: number; updated: number; deleted: number; skipped: string[] } | null>(null)
+  const [syncResult, setSyncResult] = useState<{
+    created: number; updated: number; deleted: number
+    usersCreated: number; usersDeleted: number
+    createdList: string[]; updatedList: string[]; deletedList: string[]
+    usersCreatedList: string[]; usersDeletedList: string[]
+    skipped: string[]
+  } | null>(null)
 
   function toggleExpand(id: string) {
     setExpanded((prev) => {
@@ -94,16 +100,35 @@ export default function AdminCharacterList({ classes }: Props) {
             <p className="text-sm font-semibold text-gray-800">전투력 동기화 결과</p>
             <button onClick={() => setSyncResult(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
           </div>
-          <div className="flex gap-3 text-sm mt-1">
-            {syncResult.created > 0 && <span className="text-blue-600">+{syncResult.created} 생성</span>}
-            {syncResult.updated > 0 && <span className="text-green-700">{syncResult.updated} 업데이트</span>}
-            {syncResult.deleted > 0 && <span className="text-red-500">-{syncResult.deleted} 삭제</span>}
-            {syncResult.created === 0 && syncResult.updated === 0 && syncResult.deleted === 0 && (
-              <span className="text-gray-400">변경사항 없음</span>
-            )}
+          <div className="flex flex-wrap gap-3 text-sm">
+            {syncResult.usersCreated === 0 && syncResult.usersDeleted === 0 && syncResult.created === 0 && syncResult.updated === 0 && syncResult.deleted === 0
+              ? <span className="text-gray-400">변경사항 없음</span>
+              : <>
+                  {syncResult.usersCreated > 0 && <span className="text-purple-600">+{syncResult.usersCreated} 길드원 추가</span>}
+                  {syncResult.usersDeleted > 0 && <span className="text-red-500">-{syncResult.usersDeleted} 길드원 삭제</span>}
+                  {syncResult.created > 0 && <span className="text-blue-600">+{syncResult.created} 캐릭터 생성</span>}
+                  {syncResult.updated > 0 && <span className="text-green-700">{syncResult.updated} 업데이트</span>}
+                  {syncResult.deleted > 0 && <span className="text-orange-500">-{syncResult.deleted} 캐릭터 삭제</span>}
+                </>
+            }
           </div>
+          {syncResult.usersCreatedList.length > 0 && (
+            <p className="text-xs text-purple-500 mt-2">추가된 길드원: {syncResult.usersCreatedList.join(', ')}</p>
+          )}
+          {syncResult.usersDeletedList.length > 0 && (
+            <p className="text-xs text-red-400 mt-1">삭제된 길드원: {syncResult.usersDeletedList.join(', ')}</p>
+          )}
+          {syncResult.createdList.length > 0 && (
+            <p className="text-xs text-blue-500 mt-1">생성된 캐릭터: {syncResult.createdList.join(', ')}</p>
+          )}
+          {syncResult.updatedList.length > 0 && (
+            <p className="text-xs text-green-600 mt-1">업데이트: {syncResult.updatedList.join(', ')}</p>
+          )}
+          {syncResult.deletedList.length > 0 && (
+            <p className="text-xs text-orange-400 mt-1">삭제된 캐릭터: {syncResult.deletedList.join(', ')}</p>
+          )}
           {syncResult.skipped.length > 0 && (
-            <p className="text-xs text-gray-400 mt-1">유저 없음: {syncResult.skipped.join(', ')}</p>
+            <p className="text-xs text-gray-400 mt-1">처리 실패: {syncResult.skipped.join(', ')}</p>
           )}
         </div>
       )}

@@ -163,7 +163,7 @@ function DatePicker({ value, onChange, targetDow }: {
   )
 }
 
-type BulkResult = { inserted: number; skipped: string[]; missing: MissingEntry[] }
+type BulkResult = { inserted: number; skipped: { nickname: string; rawLine: string }[]; missing: MissingEntry[] }
 
 type Props = {
   scheduleId: string
@@ -279,9 +279,12 @@ export default function BulkApplyModal({ scheduleId, scheduleLabel, dayOfWeek, o
               {result.skipped.length > 0 && (
                 <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-sm">
                   <p className="font-medium text-gray-500 mb-1.5">유저 없음 — {result.skipped.length}명 패스</p>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-col gap-1">
                     {result.skipped.map((s, i) => (
-                      <span key={i} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">{s}</span>
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 w-16 shrink-0">{s.nickname}</span>
+                        <code className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded font-mono">{s.rawLine}</code>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -313,15 +316,16 @@ export default function BulkApplyModal({ scheduleId, scheduleLabel, dayOfWeek, o
                           onChange={() => toggleMissing(i)}
                           className="rounded"
                         />
-                        <span className="text-xs text-gray-700">
+                        <span className="text-xs text-gray-700 flex items-center gap-1.5 flex-wrap">
                           <span className="font-medium">{m.userNickname}</span>
-                          <span className="text-gray-400 mx-1">·</span>
+                          <span className="text-gray-400">·</span>
                           {CLASS_LABEL[m.cls] ?? m.cls}
-                          <span className="text-gray-400 mx-1">·</span>
+                          <span className="text-gray-400">·</span>
                           {m.cp}만
                           {m.isVolunteer && (
-                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold">지원</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold">지원</span>
                           )}
+                          <code className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded font-mono">{m.rawLine}</code>
                         </span>
                       </label>
                     ))}

@@ -38,7 +38,7 @@ export function parseRaw(rawText: string) {
     const cp = parseFloat(cpStr ?? '') || 0
     const magic_resistance = d != null && d !== '' ? parseFloat(d) : null
     const cls = CLASS_MAP[classLabel] ?? classLabel
-    return [{ userNickname, cls, cp, magic_resistance, isVolunteer }]
+    return [{ userNickname, cls, cp, magic_resistance, isVolunteer, rawLine: raw }]
   })
 }
 
@@ -49,6 +49,7 @@ export type MissingEntry = {
   cp: number
   magic_resistance: number | null
   isVolunteer: boolean
+  rawLine: string
 }
 
 export async function POST(request: NextRequest, { params }: Params) {
@@ -81,13 +82,13 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const usedCharIds = new Map<string, string[]>()
   const inserts: { raid_schedule_id: string; character_id: string; week_date: string; is_volunteer: boolean }[] = []
-  const skipped: string[] = []
+  const skipped: { nickname: string; rawLine: string }[] = []
   const missing: MissingEntry[] = []
 
   for (const entry of entries) {
     const userId = userIdMap[entry.userNickname]
     if (!userId) {
-      skipped.push(`${entry.userNickname}`)
+      skipped.push({ nickname: entry.userNickname, rawLine: entry.rawLine })
       continue
     }
 
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     const available = (chars ?? []).filter((c) => !alreadyUsed.includes(c.id))
     if (available.length === 0) {
-      missing.push({ userNickname: entry.userNickname, userId, cls: entry.cls, cp: entry.cp, magic_resistance: entry.magic_resistance, isVolunteer: entry.isVolunteer })
+      missing.push({ userNickname: entry.userNickname, userId, cls: entry.cls, cp: entry.cp, magic_resistance: entry.magic_resistance, isVolunteer: entry.isVolunteer, rawLine: entry.rawLine })
       continue
     }
 

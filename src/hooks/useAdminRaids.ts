@@ -83,10 +83,10 @@ async function bulkApply({ scheduleId, rawText, weekDate, clearExisting }: { sch
     body: JSON.stringify({ rawText, weekDate, clearExisting }),
   })
   if (!res.ok) { const { error } = await res.json(); throw new Error(error) }
-  return res.json() as Promise<{ inserted: number; skipped: string[]; missing: MissingEntry[] }>
+  return res.json() as Promise<{ inserted: number; skipped: { nickname: string; rawLine: string }[]; missing: MissingEntry[] }>
 }
 
-type MissingEntry = { userNickname: string; userId: string; cls: string; cp: number; isVolunteer: boolean }
+type MissingEntry = { userNickname: string; userId: string; cls: string; cp: number; isVolunteer: boolean; rawLine: string }
 
 async function createAndApply({ scheduleId, weekDate, entries }: { scheduleId: string; weekDate: string; entries: MissingEntry[] }) {
   const res = await fetch(`/api/admin/schedules/${scheduleId}/applications/create-and-apply`, {

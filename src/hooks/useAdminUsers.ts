@@ -140,7 +140,13 @@ export function useAdminDeleteCharacter() {
   })
 }
 
-async function syncCp(): Promise<{ created: number; updated: number; deleted: number; skipped: string[] }> {
+async function syncCp(): Promise<{
+  created: number; updated: number; deleted: number
+  usersCreated: number; usersDeleted: number
+  createdList: string[]; updatedList: string[]; deletedList: string[]
+  usersCreatedList: string[]; usersDeletedList: string[]
+  skipped: string[]
+}> {
   const res = await fetch('/api/admin/sync-cp', { method: 'POST' })
   if (!res.ok) {
     const { error } = await res.json()

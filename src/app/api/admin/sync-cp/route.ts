@@ -79,16 +79,38 @@ export async function POST() {
   const csv = await res.text()
   const sheetByUser = parseSheet(csv)
 
-  let created = 0
-  let updated = 0
-  let deleted = 0
+  const createdList: string[] = []
+  const updatedList: string[] = []
+  const deletedList: string[] = []
+  const usersCreatedList: string[] = []
+  const usersDeletedList: string[] = []
   const skipped: string[] = []
 
+  const sheetUserNicknames = new Set(sheetByUser.keys())
+
+  // 시트에 없는 member 유저 삭제 (admin은 보호)
+  const { data: allMembers } = await supabase.from('users').select('id, nickname').eq('role', 'member')
+  for (const member of allMembers ?? []) {
+    if (!sheetUserNicknames.has(member.nickname)) {
+      await supabase.from('users').delete().eq('id', member.id)
+      usersDeletedList.push(member.nickname)
+    }
+  }
+
   for (const [userNickname, sheetChars] of sheetByUser) {
-    const { data: user } = await supabase.from('users').select('id').eq('nickname', userNickname).single()
+    let { data: user } = await supabase.from('users').select('id').eq('nickname', userNickname).single()
     if (!user) {
-      skipped.push(userNickname)
-      continue
+      const { data: newUser } = await supabase
+        .from('users')
+        .insert({ nickname: userNickname, password_hash: '', role: 'member' })
+        .select('id')
+        .single()
+      if (!newUser) {
+        skipped.push(userNickname)
+        continue
+      }
+      user = newUser
+      usersCreatedList.push(userNickname)
     }
 
     const { data: dbChars } = await supabase
@@ -97,7 +119,7 @@ export async function POST() {
       .eq('user_id', user.id)
 
     const dbByNickname = new Map((dbChars ?? []).map((c) => [c.nickname, c]))
-    const sheetNicknames = new Set(sheetChars.map((c) => c.charNickname))
+    const sheetCharNicknames = new Set(sheetChars.map((c) => c.charNickname))
 
     for (const sc of sheetChars) {
       const existing = dbByNickname.get(sc.charNickname)
@@ -110,7 +132,7 @@ export async function POST() {
           server: sc.server,
           magic_resistance: sc.magic_resistance,
         })
-        created++
+        createdList.push(`${sc.charNickname}(${sc.cls})`)
       } else if (
         existing.class !== sc.cls ||
         existing.combat_power !== sc.cp ||
@@ -121,17 +143,29 @@ export async function POST() {
           .from('characters')
           .update({ class: sc.cls, combat_power: sc.cp, server: sc.server, magic_resistance: sc.magic_resistance })
           .eq('id', existing.id)
-        updated++
+        updatedList.push(`${sc.charNickname}(${sc.cls})`)
       }
     }
 
     for (const dbChar of dbChars ?? []) {
-      if (!sheetNicknames.has(dbChar.nickname)) {
+      if (!sheetCharNicknames.has(dbChar.nickname)) {
         await supabase.from('characters').delete().eq('id', dbChar.id)
-        deleted++
+        deletedList.push(`${dbChar.nickname}(${dbChar.class})`)
       }
     }
   }
 
-  return NextResponse.json({ created, updated, deleted, skipped })
+  return NextResponse.json({
+    created: createdList.length,
+    updated: updatedList.length,
+    deleted: deletedList.length,
+    usersCreated: usersCreatedList.length,
+    usersDeleted: usersDeletedList.length,
+    createdList,
+    updatedList,
+    deletedList,
+    usersCreatedList,
+    usersDeletedList,
+    skipped,
+  })
 }

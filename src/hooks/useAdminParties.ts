@@ -71,6 +71,27 @@ export function useApplicants(scheduleId: string, weekDate?: string) {
   })
 }
 
+async function cancelApplication(payload: { scheduleId: string; weekDate: string; characterId: string }) {
+  const params = new URLSearchParams({
+    weekDate: payload.weekDate,
+    characterId: payload.characterId,
+  })
+  const res = await fetch(`/api/admin/schedules/${payload.scheduleId}/applications?${params}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error('신청 취소 실패')
+}
+
+export function useCancelApplication() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: cancelApplication,
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['applicants', vars.scheduleId] })
+    },
+  })
+}
+
 export function useSavedParties(scheduleId: string, weekDate: string) {
   return useQuery({
     queryKey: ['parties', scheduleId, weekDate],

@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { RaidWithSchedules, DAY_LABEL } from '@/types/raid'
-import { useApplicants, useSavedParties, useSaveParties, useTeamPreferences, usePositionPreferences, useAllUsers } from '@/hooks/useAdminParties'
+import { useApplicants, useSavedParties, useSaveParties, useTeamPreferences, usePositionPreferences, useAllUsers, useCancelApplication } from '@/hooks/useAdminParties'
 import AllCharactersSidebar from './AllCharactersSidebar'
 import {
   autoAssignTeams,
@@ -72,11 +72,15 @@ function DraggableBenchItem({
   char,
   allPartyLabels,
   onMoveTo,
+  onCancel,
+  canceling,
   isMain,
 }: {
   char: PartySlotCharacter
   allPartyLabels: { teamIdx: number; subIdx: number; label: string }[]
   onMoveTo: (teamIdx: number, subIdx: number) => void
+  onCancel: () => void
+  canceling: boolean
   isMain?: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -118,6 +122,14 @@ function DraggableBenchItem({
           </span>
         )}
         <span className="ml-auto text-xs text-gray-500 tabular-nums shrink-0">{formatCp(char.combat_power)}</span>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={canceling}
+          className="text-[11px] px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50 shrink-0"
+        >
+          {canceling ? '취소 중...' : '신청 취소'}
+        </button>
       </div>
 
       {/* 파티 이동 버튼 행 */}
@@ -188,6 +200,7 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
   const { data: teamPreferences = {} } = useTeamPreferences(selectedScheduleId)
   const { data: characterPositions = {} } = usePositionPreferences(selectedScheduleId)
   const saveParties = useSaveParties()
+  const cancelApplication = useCancelApplication()
 
   const allSchedules = raids.flatMap((r) =>
     r.raid_schedules.filter((s) => s.is_active).map((s) => ({ ...s, raidName: r.name }))
@@ -404,6 +417,21 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
     })
 
     setBench((prev) => [...prev, ...removed])
+  }
+
+  function handleCancelApplication(char: PartySlotCharacter) {
+    if (!weekDate) return
+    if (!window.confirm(`${char.userNickname || char.nickname}님의 ${char.nickname} 신청을 취소할까요?`)) return
+
+    cancelApplication.mutate(
+      { scheduleId: selectedScheduleId, weekDate, characterId: char.sourceCharacterId },
+      {
+        onSuccess: () => {
+          setBench((prev) => prev.filter((item) => item.sourceCharacterId !== char.sourceCharacterId))
+        },
+        onError: () => window.alert('신청 취소에 실패했어요. 다시 시도해주세요.'),
+      }
+    )
   }
 
   function handleSave() {
@@ -638,6 +666,8 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
                         char={char}
                         allPartyLabels={allPartyLabels()}
                         onMoveTo={(tIdx, sIdx) => moveCharacter(char, 'bench', { teamIdx: tIdx, subIdx: sIdx })}
+                        onCancel={() => handleCancelApplication(char)}
+                        canceling={cancelApplication.isPending && cancelApplication.variables?.characterId === char.sourceCharacterId}
                         isMain={mainCharSourceIds.has(char.sourceCharacterId)}
                       />
                     ))}

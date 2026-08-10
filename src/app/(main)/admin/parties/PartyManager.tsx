@@ -233,12 +233,29 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
       loadedTeams[teamIdx][subIdx] = sp.party_members
         .map((pm) => {
           const found = applicants.find((a) => a.id === pm.character_id)
-          if (!found) return null
+          if (found) {
+            return {
+              ...found,
+              slotId: pm.slot_id ?? `${pm.character_id}:${crypto.randomUUID()}`,
+              sourceCharacterId: pm.source_character_id ?? pm.character_id,
+              isDuplicate: pm.is_duplicate ?? false,
+            } satisfies PartySlotCharacter
+          }
 
+          // 신청 목록에 없어도 저장된 캐릭터 데이터로 복원
+          const ch = pm.characters
+          if (!ch) return null
           return {
-            ...found,
-            slotId: pm.slot_id ?? `${pm.character_id}:${crypto.randomUUID()}`,
-            sourceCharacterId: pm.source_character_id ?? pm.character_id,
+            id: ch.id,
+            nickname: ch.nickname,
+            class: ch.class,
+            combat_power: ch.combat_power,
+            magic_resistance: ch.magic_resistance ?? null,
+            userNickname: ch.users?.nickname ?? '',
+            isVolunteer: false,
+            isAdmin: ch.users?.role === 'admin',
+            slotId: pm.slot_id ?? `${ch.id}:${crypto.randomUUID()}`,
+            sourceCharacterId: pm.source_character_id ?? ch.id,
             isDuplicate: pm.is_duplicate ?? false,
           } satisfies PartySlotCharacter
         })

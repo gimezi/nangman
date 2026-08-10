@@ -26,7 +26,11 @@ export async function GET(request: NextRequest) {
         character_id,
         source_character_id,
         is_duplicate,
-        sort_order
+        sort_order,
+        characters (
+          id, nickname, class, combat_power, magic_resistance,
+          users ( nickname, role )
+        )
       )
     `)
     .eq('raid_schedule_id', scheduleId)

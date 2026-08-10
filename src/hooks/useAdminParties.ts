@@ -13,17 +13,27 @@ export type UserWithCharacters = {
   }>
 }
 
+export type SavedPartyMember = {
+  id: string
+  slot_id: string | null
+  character_id: string
+  source_character_id: string | null
+  is_duplicate: boolean | null
+  sort_order: number | null
+  characters?: {
+    id: string
+    nickname: string
+    class: string
+    combat_power: number
+    magic_resistance: number | null
+    users?: { nickname: string; role: string } | null
+  } | null
+}
+
 export type SavedParty = {
   id: string
   party_number: number
-  party_members: {
-    id: string
-    slot_id: string | null
-    character_id: string
-    source_character_id: string | null
-    is_duplicate: boolean | null
-    sort_order: number | null
-  }[]
+  party_members: SavedPartyMember[]
 }
 
 async function fetchApplicants(scheduleId: string, weekDate?: string): Promise<{ characters: PartyCharacter[]; weekDate: string | null; availableWeekDates: string[] }> {

@@ -125,9 +125,11 @@ export async function POST(request: NextRequest) {
       }
 
       const char = available[0]
-      const newCp = Math.round(entry.cp * 10000)
       const updates: Record<string, unknown> = {}
-      if (char.combat_power !== newCp) updates.combat_power = newCp
+      if (entry.cp > 0) {
+        const newCp = Math.round(entry.cp * 10000)
+        if (char.combat_power !== newCp) updates.combat_power = newCp
+      }
       if (entry.magic_resistance != null && char.magic_resistance !== entry.magic_resistance) updates.magic_resistance = entry.magic_resistance
       if (Object.keys(updates).length > 0) await supabase.from('characters').update(updates).eq('id', char.id)
 

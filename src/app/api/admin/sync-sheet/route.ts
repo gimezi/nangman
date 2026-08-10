@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
 
       const available = (chars ?? []).filter((c) => !alreadyUsed.includes(c.id))
       if (available.length === 0) {
-        missing.push({ userNickname: entry.userNickname, userId, cls: entry.cls, cp: entry.cp, magic_resistance: entry.magic_resistance, isVolunteer: entry.isVolunteer })
+        missing.push({ userNickname: entry.userNickname, userId, cls: entry.cls, cp: entry.cp, magic_resistance: entry.magic_resistance, isVolunteer: entry.isVolunteer, rawLine: entry.rawLine })
         continue
       }
 

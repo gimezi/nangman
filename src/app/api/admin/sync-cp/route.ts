@@ -1,10 +1,10 @@
+export const runtime = 'edge'
+
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminGuard'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { CLASS_MAP } from '@/app/api/admin/schedules/[scheduleId]/applications/route'
 
-const SHEET_PUBLISHED_ID = process.env.GOOGLE_SHEET_PUBLISHED_ID!
-const SHEET_GID = process.env.GOOGLE_SHEET_CP_GID!
 
 type SheetChar = { charNickname: string; cls: string; cp: number; server: string | null; magic_resistance: number | null }
 
@@ -40,7 +40,7 @@ function parseSheet(csv: string): Map<string, SheetChar[]> {
     if (mainCls && !isNaN(mainCp)) {
       chars.push({
         charNickname: userNickname,
-        cls: CLASS_MAP[mainCls] ?? mainCls,
+        cls: CLASS_MAP[mainCls.replace(/\d+$/, '').trim()] ?? mainCls.replace(/\d+$/, '').trim(),
         cp: Math.round(mainCp * 10000),
         server: mainServer,
         magic_resistance: parseMr(cols[3]),
@@ -54,7 +54,7 @@ function parseSheet(csv: string): Map<string, SheetChar[]> {
       if (cls && !isNaN(cp)) {
         chars.push({
           charNickname: `${userNickname}_부캐${j + 1}`,
-          cls: CLASS_MAP[cls] ?? cls,
+          cls: CLASS_MAP[cls.replace(/\d+$/, '').trim()] ?? cls.replace(/\d+$/, '').trim(),
           cp: Math.round(cp * 10000),
           server,
           magic_resistance: parseMr(cols[6 + j * 3]),
@@ -72,18 +72,14 @@ export async function POST() {
   const guard = await requireAdmin()
   if (guard.error) return guard.error
 
-  const url = `https://docs.google.com/spreadsheets/d/e/${SHEET_PUBLISHED_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`
-  const res = await fetch(url, {
+  const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'cp_sheet_csv_url').single()
+  if (!setting?.value) return NextResponse.json({ error: '전투력 시트 URL이 설정되지 않았습니다' }, { status: 400 })
+
+  const res = await fetch(setting.value, {
     redirect: 'follow',
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
   })
-  if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    return NextResponse.json(
-      { error: '시트를 불러오지 못했습니다', status: res.status, url, body: body.slice(0, 300) },
-      { status: 500 }
-    )
-  }
+  if (!res.ok) return NextResponse.json({ error: `시트를 불러오지 못했습니다 (${res.status})` }, { status: 500 })
 
   const csv = await res.text()
   const sheetByUser = parseSheet(csv)

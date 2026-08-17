@@ -37,8 +37,11 @@ export function parseRaw(rawText: string) {
     const cpStr = isReversed ? b : c
     const cp = parseFloat(cpStr ?? '') || 0
     const magic_resistance = d != null && d !== '' ? parseFloat(d) : null
-    const cls = CLASS_MAP[classLabel] ?? classLabel
-    return [{ userNickname, cls, cp, magic_resistance, isVolunteer, rawLine: raw }]
+    const numberMatch = classLabel?.match(/(\d+)$/)
+    const classIndex = numberMatch ? parseInt(numberMatch[1]) : 0
+    const normalizedLabel = classLabel?.replace(/\d+$/, '').trim() ?? ''
+    const cls = CLASS_MAP[normalizedLabel] ?? normalizedLabel
+    return [{ userNickname, cls, cp, magic_resistance, isVolunteer, rawLine: raw, classIndex }]
   })
 }
 
@@ -50,6 +53,7 @@ export type MissingEntry = {
   magic_resistance: number | null
   isVolunteer: boolean
   rawLine: string
+  classIndex: number
 }
 
 export async function POST(request: NextRequest, { params }: Params) {

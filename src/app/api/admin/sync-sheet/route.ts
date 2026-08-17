@@ -1,14 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+export const runtime = 'edge'
+
+import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminGuard'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { parseRaw, type MissingEntry } from '@/app/api/admin/schedules/[scheduleId]/applications/route'
-
-function parseSheetUrl(url: string): { sheetId: string; gid: string } | null {
-  const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
-  if (!idMatch) return null
-  const gidMatch = url.match(/[#?&]gid=(\d+)/)
-  return { sheetId: idMatch[1], gid: gidMatch?.[1] ?? '0' }
-}
 
 function parseKoreanTimestamp(ts: string): Date | null {
   const m = ts.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\s*(오전|오후)\s*(\d{1,2}):(\d{2}):(\d{2})/)
@@ -41,7 +36,7 @@ export type SyncDateResult = {
   missing?: MissingEntry[]
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   const guard = await requireAdmin()
   if (guard.error) return guard.error
 
@@ -57,22 +52,20 @@ export async function POST(request: NextRequest) {
   if (schedErr || !schedule) return NextResponse.json({ error: '스케줄을 찾을 수 없습니다' }, { status: 404 })
   if (!schedule.sheet_url) return NextResponse.json({ error: '시트 URL이 설정되지 않았습니다' }, { status: 400 })
 
-  const parsed = parseSheetUrl(schedule.sheet_url)
-  if (!parsed) return NextResponse.json({ error: '올바른 구글 시트 URL이 아닙니다' }, { status: 400 })
-
-  const csvUrl = `https://docs.google.com/spreadsheets/d/${parsed.sheetId}/export?format=csv&gid=${parsed.gid}`
-  const res = await fetch(csvUrl, { redirect: 'follow' })
-  if (!res.ok) return NextResponse.json({ error: '시트를 불러오지 못했습니다' }, { status: 500 })
+  const res = await fetch(schedule.sheet_url, {
+    redirect: 'follow',
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+  })
+  if (!res.ok) return NextResponse.json({ error: `시트를 불러오지 못했습니다 (${res.status})` }, { status: 500 })
 
   const csv = await res.text()
   const rows = csv.trim().split('\n').slice(1)
 
   const byDate = new Map<string, string[]>()
   for (const row of rows) {
-    const commaIdx = row.indexOf(',')
-    if (commaIdx === -1) continue
-    const timestamp = row.slice(0, commaIdx).trim()
-    const charData = row.slice(commaIdx + 1).trim().replace(/^"|"$/g, '')
+    const cols = row.split(',')
+    const timestamp = cols[0]?.trim() ?? ''
+    const charData = cols[1]?.trim().replace(/^"|"$/g, '') ?? ''
     if (!timestamp || !charData) continue
     const date = parseKoreanTimestamp(timestamp)
     if (!date) continue
@@ -117,14 +110,16 @@ export async function POST(request: NextRequest) {
         .select('id, combat_power, magic_resistance')
         .eq('user_id', userId)
         .eq('class', entry.cls)
+        .order('combat_power', { ascending: false })
 
-      const available = (chars ?? []).filter((c) => !alreadyUsed.includes(c.id))
-      if (available.length === 0) {
-        missing.push({ userNickname: entry.userNickname, userId, cls: entry.cls, cp: entry.cp, magic_resistance: entry.magic_resistance, isVolunteer: entry.isVolunteer, rawLine: entry.rawLine })
+      const sorted = chars ?? []
+      const target = sorted[entry.classIndex] ?? null
+      if (!target || alreadyUsed.includes(target.id)) {
+        missing.push({ userNickname: entry.userNickname, userId, cls: entry.cls, cp: entry.cp, magic_resistance: entry.magic_resistance, isVolunteer: entry.isVolunteer, rawLine: entry.rawLine, classIndex: entry.classIndex })
         continue
       }
 
-      const char = available[0]
+      const char = target
       const updates: Record<string, unknown> = {}
       if (entry.cp > 0) {
         const newCp = Math.round(entry.cp * 10000)

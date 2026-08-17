@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, AdminUser, useSyncCp, Character, useAdminDeleteCharacter } from '@/hooks/useAdminUsers'
+import { useAdminSettings, useUpdateSetting } from '@/hooks/useAdminSettings'
 import { ClassType } from '@/models/classes'
 import { formatCp } from '@/lib/format'
 import AdminCharacterModal from './AdminCharacterModal'
@@ -25,11 +26,16 @@ export default function AdminCharacterList({ classes }: Props) {
   const deleteUser = useDeleteUser()
   const deleteChar = useAdminDeleteCharacter()
   const syncCp = useSyncCp()
+  const { data: settings } = useAdminSettings()
+  const updateSetting = useUpdateSetting()
+  const cpSheetUrl = settings?.cp_sheet_csv_url ?? ''
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [modal, setModal] = useState<ModalState>(null)
   const [newNickname, setNewNickname] = useState('')
   const [search, setSearch] = useState('')
+  const [editingUrl, setEditingUrl] = useState(false)
+  const [urlDraft, setUrlDraft] = useState('')
   const [syncResult, setSyncResult] = useState<{
     created: number; updated: number; deleted: number
     usersCreated: number; usersDeleted: number
@@ -75,11 +81,7 @@ export default function AdminCharacterList({ classes }: Props) {
           className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
-          onClick={() =>
-            syncCp.mutate(undefined, {
-              onSuccess: (data) => setSyncResult(data),
-            })
-          }
+          onClick={() => syncCp.mutate(undefined, { onSuccess: (data) => setSyncResult(data) })}
           disabled={syncCp.isPending}
           className="px-4 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:bg-emerald-300 transition-colors shrink-0"
         >
@@ -91,6 +93,37 @@ export default function AdminCharacterList({ classes }: Props) {
         >
           + 길드원 추가
         </button>
+      </div>
+
+      {/* 전투력 시트 URL */}
+      <div className="flex items-center gap-2 mb-3 text-xs text-gray-400">
+        <span className="shrink-0">전투력 시트</span>
+        {editingUrl ? (
+          <>
+            <input
+              value={urlDraft}
+              onChange={(e) => setUrlDraft(e.target.value)}
+              placeholder="웹에 게시된 CSV URL"
+              className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+            />
+            <button
+              onClick={() => {
+                updateSetting.mutate({ key: 'cp_sheet_csv_url', value: urlDraft }, { onSuccess: () => setEditingUrl(false) })
+              }}
+              disabled={updateSetting.isPending}
+              className="shrink-0 text-blue-500 hover:text-blue-700"
+            >저장</button>
+            <button onClick={() => setEditingUrl(false)} className="shrink-0 text-gray-400 hover:text-gray-600">취소</button>
+          </>
+        ) : (
+          <>
+            <span className="truncate max-w-xs">{cpSheetUrl || '미설정'}</span>
+            <button
+              onClick={() => { setUrlDraft(cpSheetUrl); setEditingUrl(true) }}
+              className="shrink-0 text-gray-400 hover:text-gray-600"
+            >수정</button>
+          </>
+        )}
       </div>
 
       {/* 동기화 결과 */}

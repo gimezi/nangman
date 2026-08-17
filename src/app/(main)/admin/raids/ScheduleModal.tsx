@@ -118,10 +118,11 @@ export default function ScheduleModal({ mode, raidId, schedule, onClose }: Props
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">구글 시트 URL</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">구글 시트 CSV URL</label>
             <input type="url" value={form.sheet_url} onChange={(e) => set('sheet_url', e.target.value)}
-              placeholder="https://docs.google.com/spreadsheets/d/..."
+              placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?gid=...&output=csv"
               className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <p className="text-xs text-gray-400 mt-1">구글 시트 → 파일 → 공유 → 웹에 게시 → CSV로 게시한 URL</p>
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer">

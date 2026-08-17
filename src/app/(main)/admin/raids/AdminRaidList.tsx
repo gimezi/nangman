@@ -41,6 +41,9 @@ export default function AdminRaidList() {
   const [syncResult, setSyncResult] = useState<SyncResultState>(null)
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const syncSheet = useSyncSheet()
+  const updateSchedule = useUpdateSchedule()
+  const [editingUrlId, setEditingUrlId] = useState<string | null>(null)
+  const [urlDraft, setUrlDraft] = useState('')
 
   function toggleExpand(id: string) {
     setExpanded((prev) => {
@@ -150,6 +153,39 @@ export default function AdminRaidList() {
                           title="스케줄 삭제"
                         >×</button>
                       </div>
+                    </div>
+
+                    {/* 시트 URL 인라인 편집 */}
+                    <div className="flex items-center gap-2 px-5 pb-2 text-xs text-gray-400">
+                      <span className="shrink-0">시트 URL</span>
+                      {editingUrlId === schedule.id ? (
+                        <>
+                          <input
+                            value={urlDraft}
+                            onChange={(e) => setUrlDraft(e.target.value)}
+                            placeholder="웹에 게시된 CSV URL"
+                            className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => updateSchedule.mutate(
+                              { id: schedule.id, sheet_url: urlDraft || null },
+                              { onSuccess: () => setEditingUrlId(null) }
+                            )}
+                            disabled={updateSchedule.isPending}
+                            className="shrink-0 text-blue-500 hover:text-blue-700"
+                          >저장</button>
+                          <button onClick={() => setEditingUrlId(null)} className="shrink-0 text-gray-400 hover:text-gray-600">취소</button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="truncate max-w-xs">{schedule.sheet_url || '미설정'}</span>
+                          <button
+                            onClick={() => { setUrlDraft(schedule.sheet_url ?? ''); setEditingUrlId(schedule.id) }}
+                            className="shrink-0 text-gray-400 hover:text-gray-600"
+                          >수정</button>
+                        </>
+                      )}
                     </div>
 
                     {syncResult?.scheduleId === schedule.id && (

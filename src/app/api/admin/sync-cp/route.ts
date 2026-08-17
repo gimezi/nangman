@@ -73,7 +73,10 @@ export async function POST() {
   if (guard.error) return guard.error
 
   const url = `https://docs.google.com/spreadsheets/d/e/${SHEET_PUBLISHED_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`
-  const res = await fetch(url, { redirect: 'follow' })
+  const res = await fetch(url, {
+    redirect: 'follow',
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+  })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     return NextResponse.json(

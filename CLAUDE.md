@@ -91,6 +91,18 @@
 - 한국어 타임스탬프("2026. 5. 11 오후 3:30:52") 파싱 후 가장 가까운 월요일 날짜로 매핑
 - 환경변수: `GOOGLE_SHEET_ID`, `GOOGLE_SHEET_GID`
 
+## 넥슨 공식 랭킹 API (src/app/api/nexon/character/)
+- 캐릭터명 + 서버로 전투력/직업을 넥슨 공식 랭킹에서 가져오는 프록시 API
+- 엔드포인트: `POST /api/nexon/character` — body: `{ nickname: string, server: '던컨'|'리안'|'에린' }`
+- 응답: `{ nickname, combat_power, nexon_class }` (nexon_class는 `archer_3` 같은 CSS 클래스 코드)
+- **구현 방식**: CORS 우회를 위해 Next.js API route에서 서버→서버로 넥슨에 요청
+  1. 먼저 `GET https://mabinogimobile.nexon.com/Ranking/List` 로 쿠키 수집
+  2. 수집한 쿠키 + `X-Requested-With: XMLHttpRequest` 헤더로 `POST /Ranking/List/rankdata` 호출
+  - POST 파라미터: `t=1, pageno=1, s={서버코드}, c=0, search={캐릭터명}` (multipart/form-data)
+  - 서버 코드: 던컨=3, 리안=1, 에린=2
+- 응답 HTML에서 `data-charactername`, `<dd class="archer_3">`, `<dd class="type_1">` 파싱
+- 캐릭터가 랭킹에 없으면 404 반환
+
 ## 환경변수 (.env.local)
 - `DISCORD_WEBHOOK_URL`: Discord 포럼 채널 웹훅 URL
 - `GOOGLE_SHEET_ID`, `GOOGLE_SHEET_GID`: 구글 시트 연동

@@ -10,7 +10,9 @@
       "Bash(gh repo *)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:mabinogimobile.nexon.com)"
+      "WebFetch(domain:mabinogimobile.nexon.com)",
+      "WebFetch(domain:docs.google.com)",
+      "WebFetch(domain:doc-0c-40-sheets.googleusercontent.com)"
     ]
   }
 }

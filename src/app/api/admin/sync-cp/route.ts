@@ -3,7 +3,7 @@ import { requireAdmin } from '@/lib/adminGuard'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { CLASS_MAP } from '@/app/api/admin/schedules/[scheduleId]/applications/route'
 
-const SHEET_ID = process.env.GOOGLE_SHEET_ID!
+const SHEET_PUBLISHED_ID = process.env.GOOGLE_SHEET_PUBLISHED_ID!
 const SHEET_GID = process.env.GOOGLE_SHEET_CP_GID!
 
 type SheetChar = { charNickname: string; cls: string; cp: number; server: string | null; magic_resistance: number | null }
@@ -72,7 +72,7 @@ export async function POST() {
   const guard = await requireAdmin()
   if (guard.error) return guard.error
 
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
+  const url = `https://docs.google.com/spreadsheets/d/e/${SHEET_PUBLISHED_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`
   const res = await fetch(url, { redirect: 'follow' })
   if (!res.ok) return NextResponse.json({ error: '시트를 불러오지 못했습니다' }, { status: 500 })
 

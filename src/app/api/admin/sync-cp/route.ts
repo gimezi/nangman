@@ -74,7 +74,13 @@ export async function POST() {
 
   const url = `https://docs.google.com/spreadsheets/d/e/${SHEET_PUBLISHED_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`
   const res = await fetch(url, { redirect: 'follow' })
-  if (!res.ok) return NextResponse.json({ error: '시트를 불러오지 못했습니다' }, { status: 500 })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    return NextResponse.json(
+      { error: '시트를 불러오지 못했습니다', status: res.status, url, body: body.slice(0, 300) },
+      { status: 500 }
+    )
+  }
 
   const csv = await res.text()
   const sheetByUser = parseSheet(csv)

@@ -379,6 +379,35 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
       return
     }
 
+    // 목적지 파티에 같은 유저의 다른 캐릭터가 있으면 서로 자리를 바꿈
+    if (to !== 'bench') {
+      const targetParty = teams[to.teamIdx]?.[to.subIdx] ?? []
+      const conflictChar = targetParty.find(
+        (c) => c.userNickname === char.userNickname && c.slotId !== char.slotId
+      )
+      if (conflictChar) {
+        setTeams((prev) => {
+          const next = prev.map((team) => team.map((party) => [...party]))
+          if (from !== 'bench') {
+            next[from.teamIdx][from.subIdx] = next[from.teamIdx][from.subIdx].filter((c) => c.slotId !== char.slotId)
+            next[from.teamIdx][from.subIdx] = [...next[from.teamIdx][from.subIdx], conflictChar]
+          }
+          next[to.teamIdx][to.subIdx] = next[to.teamIdx][to.subIdx].filter((c) => c.slotId !== conflictChar.slotId)
+          next[to.teamIdx][to.subIdx] = [...next[to.teamIdx][to.subIdx], char]
+          return next.map((team) => team.filter((party) => party))
+        })
+        setBench((prev) => {
+          let next = [...prev]
+          if (from === 'bench') {
+            next = next.filter((c) => c.slotId !== char.slotId)
+            next = [...next, conflictChar]
+          }
+          return next
+        })
+        return
+      }
+    }
+
     setTeams((prev) => {
       const next = prev.map((team) => team.map((party) => [...party]))
 

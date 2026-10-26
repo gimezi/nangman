@@ -389,18 +389,19 @@ export default function PartyManager({ raids, initialScheduleId, initialWeekDate
         setTeams((prev) => {
           const next = prev.map((team) => team.map((party) => [...party]))
           if (from !== 'bench') {
-            next[from.teamIdx][from.subIdx] = next[from.teamIdx][from.subIdx].filter((c) => c.slotId !== char.slotId)
-            next[from.teamIdx][from.subIdx] = [...next[from.teamIdx][from.subIdx], conflictChar]
+            next[from.teamIdx][from.subIdx] = next[from.teamIdx][from.subIdx].map((c) =>
+              c.slotId === char.slotId ? conflictChar : c
+            )
           }
-          next[to.teamIdx][to.subIdx] = next[to.teamIdx][to.subIdx].filter((c) => c.slotId !== conflictChar.slotId)
-          next[to.teamIdx][to.subIdx] = [...next[to.teamIdx][to.subIdx], char]
+          next[to.teamIdx][to.subIdx] = next[to.teamIdx][to.subIdx].map((c) =>
+            c.slotId === conflictChar.slotId ? char : c
+          )
           return next.map((team) => team.filter((party) => party))
         })
         setBench((prev) => {
           let next = [...prev]
           if (from === 'bench') {
-            next = next.filter((c) => c.slotId !== char.slotId)
-            next = [...next, conflictChar]
+            next = next.map((c) => c.slotId === char.slotId ? conflictChar : c)
           }
           return next
         })
